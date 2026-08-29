@@ -1,0 +1,57 @@
+{
+  "name": "shiori-words",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "詞織 / SHIORI — an AI translation and Japanese learning web app.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "deploy:check": "tsx scripts/check-production-env.ts",
+    "vercel-build": "npm run deploy:check && npm run db:migrate && next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "dictionary:sync": "tsx scripts/sync-jmdict.ts",
+    "qa:local": "tsx scripts/qa-blackbox-local.ts",
+    "qa:fixture": "tsx scripts/qa-fixture.ts",
+    "qa:real": "tsx scripts/qa-blackbox-real.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@phosphor-icons/react": "^2.1.10",
+    "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.45.2",
+    "fastest-levenshtein": "^1.0.16",
+    "jsonrepair": "^3.15.0",
+    "kamiya-codec": "^4.16.1",
+    "next": "^16.3.3",
+    "opencc-js": "^1.4.2",
+    "postgres": "^3.4.9",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "wanakana": "^5.3.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@scriptin/jmdict-simplified-types": "^3.6.1",
+    "@tailwindcss/postcss": "4.1.13",
+    "@types/node": "^26.4.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "eslint": "9.39.1",
+    "eslint-config-next": "^16.3.3",
+    "tailwindcss": "4.1.13",
+    "tar": "^7.5.22",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

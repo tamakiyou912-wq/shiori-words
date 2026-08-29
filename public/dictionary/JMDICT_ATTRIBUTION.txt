@@ -1,0 +1,7 @@
+JMdict Japanese-Multilingual Dictionary
+Copyright the Electronic Dictionary Research and Development Group.
+Source: https://www.edrdg.org/jmdict/j_jmdict.html
+JSON conversion: https://github.com/scriptin/jmdict-simplified
+License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+Dictionary date: 2026-08-24; conversion format version: 3.6.2
+This compact derivative contains common entries, spellings, readings, parts of speech, and English glosses.
