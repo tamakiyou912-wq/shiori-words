@@ -4,7 +4,7 @@ import { getDb } from "@/db/client";
 import { apiCredentials, guestCodes, registrationInvites, sessions, siteSettings, users } from "@/db/schema";
 import { createSession } from "@/lib/auth";
 import { createRegistrationInvite, deleteUser, revokeUserSessions, setUserStatus, updateSiteSettings } from "@/lib/owner";
-import { createInitialOwner, registerUser, SiteError } from "@/lib/site";
+import { createInitialOwner, isValidSetupToken, registerUser, SiteError } from "@/lib/site";
 
 const setupToken = "owner-setup-token-for-tests-only-0123456789abcdef";
 let ownerId = "";
@@ -19,6 +19,8 @@ describe.sequential("private instance owner and registration", () => {
   });
 
   it("rejects an incorrect setup token", async () => {
+    expect(isValidSetupToken(`  ${setupToken}  `)).toBe(true);
+    expect(isValidSetupToken("wrong-token")).toBe(false);
     await expect(createInitialOwner({ setupToken: "wrong-token", username: "owner-test", password: "owner-password-123" })).rejects.toSatisfy(expectSiteError("OWNER_SETUP_TOKEN_INVALID"));
   });
 

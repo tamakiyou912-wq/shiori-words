@@ -55,11 +55,15 @@ function configuredSetupToken() {
   return token;
 }
 
+export function isValidSetupToken(input: string) {
+  return safeEqual(input.trim(), configuredSetupToken());
+}
+
 export async function createInitialOwner(input: { setupToken: string; username: string; password: string }) {
   const username = normalizeUsername(input.username);
   if (!validUsername(username)) throw new SiteError("USERNAME_INVALID");
   if (!validPassword(input.password)) throw new SiteError("PASSWORD_INVALID");
-  if (!safeEqual(input.setupToken, configuredSetupToken())) throw new SiteError("OWNER_SETUP_TOKEN_INVALID");
+  if (!isValidSetupToken(input.setupToken)) throw new SiteError("OWNER_SETUP_TOKEN_INVALID");
 
   const passwordHash = await hashPassword(input.password);
   const now = new Date();
