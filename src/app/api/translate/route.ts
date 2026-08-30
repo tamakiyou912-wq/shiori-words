@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { randomBytes } from "node:crypto";
 import { assembleResult, createProvider, AIProviderError } from "@/lib/ai/provider";
 import { createConversation, getConversation, addFollowUp, saveHistory } from "@/lib/conversations";
 import { getCredential } from "@/lib/credentials";
@@ -164,6 +165,11 @@ export async function POST(request: Request) {
         source: plan.baseResult.source ?? "fallback",
       } });
       sendInitialResult(send, plan.baseResult);
+      if (plan.needsAI && hasDictionaryFallback(plan.baseResult)) {
+        // The stream is live at this point; cross Vercel's small-chunk buffering
+        // threshold so mobile browsers receive the local sections immediately.
+        send({ type: "progress", padding: randomBytes(6_144).toString("base64") });
+      }
       let result = plan.baseResult;
 
       if (plan.needsAI) {

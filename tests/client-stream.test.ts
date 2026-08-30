@@ -39,4 +39,15 @@ describe("browser result stream", () => {
     })).rejects.toThrow("请先配置 AI API");
   });
 
+  it("ignores a transport flush event without losing surrounding sections", async () => {
+    const events: StreamEvent[] = [];
+    const response = responseFromChunks([
+      '{"type":"section","data":{"key":"translation","value":"学校"}}\n',
+      `${JSON.stringify({ type: "progress", padding: "x".repeat(8192) })}\n`,
+      '{"type":"done","data":{"result":{"detectedLanguage":"romaji","targetLanguage":"ja","original":"gakkou","normalizedInput":"gakkou","translation":"学校"}}}\n',
+    ]);
+    await consumeStream(response, (event) => events.push(event));
+    expect(events.map((event) => event.type)).toEqual(["section", "progress", "done"]);
+  });
+
 });

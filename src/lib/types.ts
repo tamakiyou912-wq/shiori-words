@@ -129,6 +129,7 @@ export type TranslationResult = {
 export type StreamEvent =
   | { type: "meta"; data: { detectedLanguage: Language; targetLanguage: string; source: "dictionary" | "ai" | "hybrid" | "cache" | "fallback" } }
   | { type: "section"; data: { key: keyof TranslationResult; value: unknown } }
+  | { type: "progress"; padding: string }
   | { type: "done"; data: { result: TranslationResult; conversationId?: string; remainingUses?: number; telemetry?: QueryTelemetry } }
   | { type: "error"; message: string; code?: string };
 
