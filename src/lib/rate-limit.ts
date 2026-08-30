@@ -11,14 +11,19 @@ export async function enforceRateLimit(rawKey: string, limit: number, windowMs =
   const key = hashPrivateValue(rawKey);
   const now = new Date();
   const cutoff = new Date(now.getTime() - windowMs);
+  // Raw SQL fragments do not inherit the timestamp column encoder. Passing a
+  // Date directly reaches postgres.js as an unsupported value in production,
+  // so serialize and cast the two comparison values explicitly.
+  const nowSql = now.toISOString();
+  const cutoffSql = cutoff.toISOString();
   const rows = await getDb()
     .insert(rateLimits)
     .values({ key, windowStart: now, count: 1 })
     .onConflictDoUpdate({
       target: rateLimits.key,
       set: {
-        count: sql<number>`case when ${rateLimits.windowStart} < ${cutoff} then 1 else ${rateLimits.count} + 1 end`,
-        windowStart: sql<Date>`case when ${rateLimits.windowStart} < ${cutoff} then ${now} else ${rateLimits.windowStart} end`,
+        count: sql<number>`case when ${rateLimits.windowStart} < ${cutoffSql}::timestamptz then 1 else ${rateLimits.count} + 1 end`,
+        windowStart: sql<Date>`case when ${rateLimits.windowStart} < ${cutoffSql}::timestamptz then ${nowSql}::timestamptz else ${rateLimits.windowStart} end`,
       },
     })
     .returning({ count: rateLimits.count, windowStart: rateLimits.windowStart });

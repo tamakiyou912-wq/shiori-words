@@ -4,6 +4,7 @@ import { getDb } from "@/db/client";
 import { apiCredentials, sessions, users } from "@/db/schema";
 import { createSession, hashPassword, SESSION_MAX_AGE_SECONDS, verifyPassword } from "@/lib/auth";
 import { getCredentialSummary } from "@/lib/credentials";
+import { clearRateLimit, enforceRateLimit } from "@/lib/rate-limit";
 import { decryptSecret, encryptSecret } from "@/lib/security";
 
 describe("credential security", () => {
@@ -55,5 +56,12 @@ describe("credential security", () => {
     expect(session.expiresAt.getTime()).toBeGreaterThanOrEqual(before + expectedMs);
     expect(session.expiresAt.getTime()).toBeLessThanOrEqual(after + expectedMs);
     expect(SESSION_MAX_AGE_SECONDS).toBe(30 * 24 * 60 * 60);
+  });
+
+  it("updates the persistent rate-limit window and rejects only over-limit attempts", async () => {
+    const key = `test-rate-limit:${crypto.randomUUID()}`;
+    await expect(enforceRateLimit(key, 1)).resolves.toBeUndefined();
+    await expect(enforceRateLimit(key, 1)).rejects.toThrow("RATE_LIMITED");
+    await clearRateLimit(key);
   });
 });

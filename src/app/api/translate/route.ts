@@ -85,16 +85,6 @@ function diagnosticCode(error: unknown) {
   return error instanceof Error ? error.name : "UNKNOWN";
 }
 
-function diagnosticFrames(error: unknown) {
-  const frames: string[] = [];
-  let current = error;
-  for (let depth = 0; depth < 3 && current && typeof current === "object"; depth += 1) {
-    if (current instanceof Error) frames.push(...(current.stack?.split("\n").slice(1, 4) ?? []));
-    current = "cause" in current ? current.cause : undefined;
-  }
-  return frames.slice(0, 6);
-}
-
 export async function POST(request: Request) {
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return streamResponse(async (send) => send({ type: "error", message: "请输入有效的查询内容。", code: "INVALID_INPUT" }));
@@ -236,7 +226,7 @@ export async function POST(request: Request) {
       logTelemetry(plan.telemetry);
       send({ type: "done", data: { result, conversationId: conversation?.id ?? conversationId, remainingUses, telemetry: process.env.NODE_ENV === "development" ? plan.telemetry : undefined } });
     } catch (error) {
-      console.error("[translate] request failed", { stage, code: diagnosticCode(error), frames: diagnosticFrames(error) });
+      console.error("[translate] request failed", { stage, code: diagnosticCode(error) });
       if (guestReserved && principal.kind === "guest") await releaseGuestUse(principal.guestCodeId).catch(() => undefined);
       if (request.signal.aborted) return;
       if (error instanceof AIProviderError) {
