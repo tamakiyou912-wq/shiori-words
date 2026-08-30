@@ -1,4 +1,5 @@
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, check, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import type { ConversationContext, TranslationResult } from "@/lib/types";
 
 export const users = pgTable(
@@ -7,10 +8,56 @@ export const users = pgTable(
     id: text("id").primaryKey(),
     username: text("username").notNull(),
     passwordHash: text("password_hash").notNull(),
+    role: text("role").notNull().default("USER"),
+    status: text("status").notNull().default("ACTIVE"),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex("users_username_unique").on(table.username)],
+  (table) => [
+    uniqueIndex("users_username_unique").on(table.username),
+    uniqueIndex("users_single_owner_unique").on(table.role).where(sql`${table.role} = 'OWNER'`),
+    check("users_role_check", sql`${table.role} in ('OWNER', 'USER')`),
+    check("users_status_check", sql`${table.status} in ('ACTIVE', 'SUSPENDED')`),
+  ],
+);
+
+export const siteSettings = pgTable(
+  "site_settings",
+  {
+    id: text("id").primaryKey().default("default"),
+    registrationMode: text("registration_mode").notNull().default("invite"),
+    maxUsers: integer("max_users").notNull().default(20),
+    siteName: text("site_name").notNull().default("詞織 / SHIORI"),
+    allowGuestCodes: boolean("allow_guest_codes").notNull().default(true),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("site_settings_singleton_check", sql`${table.id} = 'default'`),
+    check("site_settings_registration_mode_check", sql`${table.registrationMode} in ('open', 'invite', 'closed')`),
+    check("site_settings_max_users_check", sql`${table.maxUsers} between 1 and 10000`),
+  ],
+);
+
+export const registrationInvites = pgTable(
+  "registration_invites",
+  {
+    id: text("id").primaryKey(),
+    code: text("code").notNull(),
+    name: text("name"),
+    createdByUserId: text("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    maxUses: integer("max_uses").notNull().default(1),
+    usedUses: integer("used_uses").notNull().default(0),
+    enabled: boolean("enabled").notNull().default(true),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("registration_invites_code_unique").on(table.code),
+    index("registration_invites_created_by_idx").on(table.createdByUserId),
+    check("registration_invites_max_uses_check", sql`${table.maxUses} between 1 and 10000`),
+    check("registration_invites_used_uses_check", sql`${table.usedUses} >= 0 and ${table.usedUses} <= ${table.maxUses}`),
+  ],
 );
 
 export const sessions = pgTable(

@@ -2,6 +2,8 @@
 
 > words, woven clearly.
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ftamakiyou912-wq%2Fshiori-words&project-name=shiori-words&repository-name=shiori-words)
+
 詞織是一个以日语学习为核心的中、日、英 AI 翻译与语言助手。它把本地输入规范化、轻量词典和 AI 结合起来：常见词汇尽量立即出现，复杂翻译、语境、多义词和连续追问再交给用户自己的 AI Provider。
 
 ![詞織查询「学校」的桌面截图](docs/screenshot.png)
@@ -19,6 +21,7 @@
 - DeepSeek 与通用 OpenAI-compatible Provider 抽象；Base URL 和模型均可配置。
 - 用户名/密码账号、最近查询历史、可重新打开和删除。
 - 用户可创建限次体验码；访客无需注册或填写 API Key。
+- 私人实例提供唯一 Owner、开放/邀请/关闭注册、普通用户人数上限和账号停用管理。
 - 可安装 PWA，适配 iPhone、iPad、Android 和桌面浏览器。
 - 系统深色模式、键盘操作、可见焦点和 safe-area 支持。
 
@@ -43,10 +46,10 @@ npm install
 cp .env.example .env
 ```
 
-生成加密密钥，并把结果写入 `.env` 的 `ENCRYPTION_KEY`：
+生成本地加密密钥和一次性 Owner 初始化令牌（写入权限为 `600` 的 `.env`，不会打印到终端）：
 
 ```bash
-openssl rand -base64 32
+npm run setup
 ```
 
 初始化数据库并启动：
@@ -56,7 +59,7 @@ npm run db:migrate
 npm run dev
 ```
 
-打开 `http://localhost:3000`，注册后前往「设置」填写自己的 Provider、API Key、Base URL 和模型。
+打开 `http://localhost:3000/setup`，使用 `.env` 中的 `OWNER_SETUP_TOKEN` 创建唯一 Owner。完成后 `/setup` 永久失效。Owner 再到「设置」填写自己的 Provider、API Key、Base URL 和模型。
 
 ## 环境变量
 
@@ -65,6 +68,7 @@ npm run dev
 | `DATABASE_URL` | 是 | 本地可用 `file:./data/shiori`；生产推荐 Neon 的 `-pooler` PostgreSQL URL |
 | `DATABASE_MIGRATION_URL` | 否 | migration 可使用的直连 PostgreSQL URL；未设置时复用 `DATABASE_URL` |
 | `ENCRYPTION_KEY` | 是 | 32 字节 Base64 或 64 位十六进制密钥，只用于服务器端凭据加密 |
+| `OWNER_SETUP_TOKEN` | 是 | 至少 32 字符的高强度随机值，只用于第一次创建唯一 Owner |
 | `SESSION_COOKIE_NAME` | 否 | 登录 Cookie 名称 |
 | `GUEST_COOKIE_NAME` | 否 | 体验模式 Cookie 名称 |
 | `DEFAULT_AI_PROVIDER` | 否 | Provider 默认值；界面仍可修改 |
@@ -74,7 +78,7 @@ npm run dev
 
 不要把 `.env`、数据库密码、API Key 或 `ENCRYPTION_KEY` 提交到 Git。
 
-应用的页面、API、Manifest 和 Service Worker 全部使用相对同源 URL，因此不需要硬编码 `localhost` 或生产域名；Vercel Preview 与 Production URL 会自动工作。Session 使用数据库中的随机 Token Hash，不需要额外的 `AUTH_SECRET` / `SESSION_SECRET`。
+应用的页面、API、Manifest 和 Service Worker 全部使用相对同源 URL，因此不需要 `NEXT_PUBLIC_APP_URL`，也没有硬编码 `localhost` 或生产域名；Vercel Preview、Production 与未来自定义域名会自动工作。Session 使用数据库中的高熵随机 Token，其 SHA-256 Hash 持久化在 PostgreSQL，不依赖进程内存，因此不需要额外的 `AUTH_SECRET` / `SESSION_SECRET`。
 
 ## AI Provider
 
@@ -96,6 +100,8 @@ Provider 请求使用低温度、关闭长推理并要求一个完整 JSON 对�
 - 已保存 Key 的 API 只返回 `hasKey` 和固定掩码，不返回密文、末尾字符或完整 Key。
 - API Key 不写入前端包、localStorage、响应正文或日志。
 - 密码使用 bcrypt；Session Token 只以 SHA-256 Hash 形式入库，浏览器 Cookie 为 HttpOnly、SameSite=Lax。
+- `/setup` 只接受服务器 `OWNER_SETUP_TOKEN`，事务与数据库唯一索引共同保证只能创建一个 Owner；Owner 不能经普通管理 API 停用、删除或降级。
+- 注册、登录和邀请码尝试均有限流；人数上限与注册邀请码次数在数据库事务内检查，防止并发突破。
 - 体验码在数据库中原子 `UPDATE ... WHERE used_uses < max_uses`，并按 IP 与体验码限流；失败的 Provider 请求会归还预留次数。
 - Provider Base URL 默认必须使用 HTTPS，且禁止 URL 内嵌账号密码。
 
@@ -107,18 +113,21 @@ Provider 请求使用低温度、关闭长推理并要求一个完整 JSON 对�
 
 ## 数据库与部署
 
-### Vercel
+### 推荐：Vercel + Neon
 
-1. Fork / Clone 仓库，在 Vercel 选择 **Add New → Project → Import Git Repository**。
-2. 在 Neon 新建 PostgreSQL，复制启用了 **Connection pooling** 的连接串；hostname 应包含 `-pooler`。
-3. 在 Vercel 的 Production、Preview 环境设置 `DATABASE_URL` 和 `ENCRYPTION_KEY`。如需 migration 使用直连 URL，可另设 `DATABASE_MIGRATION_URL`。
-4. `ENCRYPTION_KEY` 用 `openssl rand -base64 32` 生成；不要写入 Git、`NEXT_PUBLIC_*` 或部署日志。已经保存用户 API Key 后不得随意更换，否则旧密文将无法解密。
-5. 部署。Vercel 会使用 `vercel-build` 先校验生产环境、执行幂等 migration，再运行 Next.js production build；缺少 PostgreSQL 或加密密钥时会明确中止，避免误用临时文件数据库上线。
-6. 打开 `*.vercel.app`，注册账号，在「设置」中填写自己的 DeepSeek API Key 并测试连接。
+1. Fork 仓库，点击上方 **Deploy with Vercel**，或在 Vercel 选择 **Add New → Project → Import Git Repository**。
+2. 在 Vercel Marketplace 添加 Neon（推荐就近区域），或在 Neon 手动创建数据库。Production 使用 Neon 的 pooled/serverless `DATABASE_URL`；如单独提供 migration 直连 URL，可设 `DATABASE_MIGRATION_URL`。
+3. 本地运行一次 `npm run setup`。把 `.env` 里的 `ENCRYPTION_KEY` 和 `OWNER_SETUP_TOKEN` 分别粘贴到 Vercel 的加密 Environment Variables；不要放进 Git、`NEXT_PUBLIC_*` 或日志。
+4. Production 至少配置 `DATABASE_URL`、`ENCRYPTION_KEY`、`OWNER_SETUP_TOKEN`。Preview 应使用独立 Neon branch/database；不要让不可信 Preview 连接生产数据库。
+5. 部署。`vercel-build` 会先校验环境、执行幂等 migration，再运行 Next.js production build；缺少 PostgreSQL、加密密钥或 Owner 初始化令牌时会中止。
+6. 打开 `https://你的项目.vercel.app/setup`，由实例拥有者亲自输入 `OWNER_SETUP_TOKEN`、Owner 用户名和密码。成功后令牌无法创建第二个 Owner。
+7. Owner 在「设置 → 站点管理」创建注册邀请码、设置普通用户上限和注册模式；每位用户登录后填写自己的 DeepSeek API Key。
 
-不需要配置服务器公共 DeepSeek Key；每个正式用户使用自己在设置页保存的 Key。连接 GitHub 后，向 `main` push 会自动触发新的 Production Deployment。
+默认注册模式为“邀请码注册”，普通用户上限为 20（唯一 Owner 不计入）。注册邀请码用于创建正式账号；体验码不创建账号，两者的数据与计数完全分开。
 
-Vercel 的文件系统不是持久化数据库；不要在生产 Vercel 部署中使用 `file:` URL。
+Neon 的 Vercel Integration 可以为 Preview 自动创建隔离 branch。若不使用 Preview 数据库，应关闭 Preview 部署的数据访问，而不是让 Preview 修改 Production 数据。
+
+不需要配置服务器公共 DeepSeek Key；每个正式用户使用自己在设置页保存的 Key。连接 GitHub 后，向 `main` push 会自动触发新的 Production Deployment。Vercel 的文件系统不是持久化数据库；不要在生产环境使用 `file:` URL。
 
 ### 其他 Node.js 平台
 

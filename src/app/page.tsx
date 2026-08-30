@@ -3,9 +3,10 @@ import { and, eq } from "drizzle-orm";
 import { guestCodes, translationHistory } from "@/db/schema";
 import { TranslatorApp } from "@/components/translator-app";
 import { getPrincipal } from "@/lib/principal";
+import { getPublicSiteState } from "@/lib/site";
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ history?: string }> }) {
-  const principal = await getPrincipal();
+  const [principal, site] = await Promise.all([getPrincipal(), getPublicSiteState()]);
   const params = await searchParams;
   let guest: { code: string; remainingUses: number } | null = null;
   if (principal?.kind === "guest") {
@@ -21,5 +22,5 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ h
       historyConversationId = item.conversationId ?? undefined;
     }
   }
-  return <TranslatorApp hasAccess={Boolean(principal)} guest={guest} initialResult={historyResult} initialConversationId={historyConversationId} />;
+  return <TranslatorApp hasAccess={Boolean(principal)} allowGuestCodes={site.allowGuestCodes} guest={guest} initialResult={historyResult} initialConversationId={historyConversationId} />;
 }

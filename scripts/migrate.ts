@@ -2,7 +2,11 @@ import { mkdir } from "node:fs/promises";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
+import nextEnv from "@next/env";
 import postgres from "postgres";
+
+const { loadEnvConfig } = nextEnv;
+loadEnvConfig(process.cwd());
 
 const databaseUrl = process.env.DATABASE_MIGRATION_URL || process.env.DATABASE_URL || "file:./data/shiori";
 if (process.env.VERCEL && !/^(postgres|postgresql):\/\//.test(databaseUrl)) {

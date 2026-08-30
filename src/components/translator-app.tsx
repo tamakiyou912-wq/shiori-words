@@ -42,7 +42,7 @@ export async function consumeStream(response: Response, onEvent: (event: StreamE
   if (!terminal && !signal?.aborted) throw new Error("网络响应中断，已保留收到的结果。");
 }
 
-export function TranslatorApp({ hasAccess, guest, initialResult = null, initialConversationId }: { hasAccess: boolean; guest: { code: string; remainingUses: number } | null; initialResult?: TranslationResult | null; initialConversationId?: string }) {
+export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult = null, initialConversationId }: { hasAccess: boolean; allowGuestCodes: boolean; guest: { code: string; remainingUses: number } | null; initialResult?: TranslationResult | null; initialConversationId?: string }) {
   const [input, setInput] = useState(initialResult?.original || "");
   const [targetLanguage, setTargetLanguage] = useState<TargetLanguage>("auto");
   const [result, setResult] = useState<Partial<TranslationResult> | null>(initialResult);
@@ -204,7 +204,7 @@ export function TranslatorApp({ hasAccess, guest, initialResult = null, initialC
         {error && <div className="inline-error" role="alert">{error}</div>}
       </section>
 
-      {!hasAccess && <AccessPanel />}
+      {!hasAccess && <AccessPanel allowGuestCodes={allowGuestCodes} />}
 
       {result && (
         <div ref={resultRef} className="result-area">

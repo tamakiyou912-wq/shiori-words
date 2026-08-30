@@ -5,6 +5,7 @@ export default defineConfig({
     environment: "node",
     setupFiles: ["./tests/setup.ts"],
     include: ["tests/**/*.test.ts"],
+    fileParallelism: false,
     coverage: { reporter: ["text", "json", "html"] },
   },
   resolve: { alias: { "@": new URL("./src", import.meta.url).pathname } },

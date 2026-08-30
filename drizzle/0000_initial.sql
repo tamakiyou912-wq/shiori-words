@@ -2,9 +2,39 @@ CREATE TABLE IF NOT EXISTS users (
   id text PRIMARY KEY,
   username text NOT NULL UNIQUE,
   password_hash text NOT NULL,
+  role text NOT NULL DEFAULT 'USER' CHECK (role IN ('OWNER', 'USER')),
+  status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'SUSPENDED')),
+  last_login_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'USER';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'ACTIVE';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at timestamptz;
+CREATE UNIQUE INDEX IF NOT EXISTS users_single_owner_unique ON users(role) WHERE role = 'OWNER';
+
+CREATE TABLE IF NOT EXISTS site_settings (
+  id text PRIMARY KEY DEFAULT 'default' CHECK (id = 'default'),
+  registration_mode text NOT NULL DEFAULT 'invite' CHECK (registration_mode IN ('open', 'invite', 'closed')),
+  max_users integer NOT NULL DEFAULT 20 CHECK (max_users BETWEEN 1 AND 10000),
+  site_name text NOT NULL DEFAULT '詞織 / SHIORI',
+  allow_guest_codes boolean NOT NULL DEFAULT true,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO site_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS registration_invites (
+  id text PRIMARY KEY,
+  code text NOT NULL UNIQUE,
+  name text,
+  created_by_user_id text NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  max_uses integer NOT NULL DEFAULT 1 CHECK (max_uses BETWEEN 1 AND 10000),
+  used_uses integer NOT NULL DEFAULT 0 CHECK (used_uses >= 0 AND used_uses <= max_uses),
+  enabled boolean NOT NULL DEFAULT true,
+  expires_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS registration_invites_created_by_idx ON registration_invites(created_by_user_id);
 
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash text PRIMARY KEY,

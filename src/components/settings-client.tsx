@@ -3,11 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Check, Clipboard, Key, Plus, Power, SignOut, Trash } from "@phosphor-icons/react";
+import { OwnerSettingsPanel, type OwnerSnapshot } from "./owner-settings-panel";
 
 type Credential = { provider: string; baseUrl: string; model: string; hasKey: true } | null;
 type GuestCode = { id: string; code: string; name: string | null; maxUses: number; usedUses: number; enabled: boolean; expiresAt: string | null; createdAt: string };
 
-export function SettingsClient({ initialCredential, initialCodes, username, defaultConfig }: { initialCredential: Credential; initialCodes: GuestCode[]; username: string; defaultConfig: { provider: string; baseUrl: string; model: string } }) {
+export function SettingsClient({ initialCredential, initialCodes, username, defaultConfig, allowGuestCodes, owner }: { initialCredential: Credential; initialCodes: GuestCode[]; username: string; defaultConfig: { provider: string; baseUrl: string; model: string }; allowGuestCodes: boolean; owner: OwnerSnapshot | null }) {
   const router = useRouter();
   const [provider, setProvider] = useState(initialCredential?.provider || defaultConfig.provider);
   const [baseUrl, setBaseUrl] = useState(initialCredential?.baseUrl || defaultConfig.baseUrl);
@@ -112,13 +113,15 @@ export function SettingsClient({ initialCredential, initialCodes, username, defa
       </section>
 
       <section className="settings-section" aria-labelledby="codes-title">
-        <div className="settings-section-heading"><div><h2 id="codes-title">体验码</h2><p>调用消耗你的 API；主要请求和每条追问各算一次。</p></div><Plus aria-hidden="true" /></div>
-        <form className="create-code-form" onSubmit={createGuestCode}><label>名称（可选）<input value={codeName} onChange={(event) => setCodeName(event.target.value)} placeholder="给朋友" maxLength={50} /></label><label>允许次数<input type="number" min={1} max={10000} value={maxUses} onChange={(event) => setMaxUses(Number(event.target.value))} /></label><button className="button secondary" type="submit" disabled={Boolean(busy) || !initialCredential}><Plus aria-hidden="true" />创建</button></form>
+        <div className="settings-section-heading"><div><h2 id="codes-title">体验码</h2><p>{allowGuestCodes ? "调用消耗你的 API；主要请求和每条追问各算一次。" : "站点 Owner 当前已关闭体验码功能。"}</p></div><Plus aria-hidden="true" /></div>
+        {allowGuestCodes && <form className="create-code-form" onSubmit={createGuestCode}><label>名称（可选）<input value={codeName} onChange={(event) => setCodeName(event.target.value)} placeholder="给朋友" maxLength={50} /></label><label>允许次数<input type="number" min={1} max={10000} value={maxUses} onChange={(event) => setMaxUses(Number(event.target.value))} /></label><button className="button secondary" type="submit" disabled={Boolean(busy) || !initialCredential}><Plus aria-hidden="true" />创建</button></form>}
         <div className="code-list">
           {codes.length === 0 && <p className="empty-note">还没有体验码。</p>}
           {codes.map((code) => <div className="code-row" key={code.id}><div><strong>{code.name || code.code}</strong>{code.name && <code>{code.code}</code>}<span>{code.usedUses} / {code.maxUses} 次 · {code.enabled ? "启用" : "已禁用"}</span></div><div className="row-actions"><button type="button" aria-label="复制体验码" onClick={() => navigator.clipboard.writeText(code.code)}><Clipboard aria-hidden="true" /></button><button type="button" aria-label={code.enabled ? "禁用体验码" : "启用体验码"} onClick={() => toggleCode(code)}><Power aria-hidden="true" /></button><button type="button" aria-label="删除体验码" onClick={() => removeCode(code)}><Trash aria-hidden="true" /></button></div></div>)}
         </div>
       </section>
+
+      {owner && <OwnerSettingsPanel initial={owner} />}
 
       <section className="settings-section" aria-labelledby="account-title">
         <div className="settings-section-heading"><div><h2 id="account-title">账号</h2><p>修改密码会退出其他会话。</p></div><SignOut aria-hidden="true" /></div>

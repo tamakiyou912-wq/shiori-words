@@ -632,6 +632,45 @@ a { color: inherit; text-decoration: none; }
 .row-actions button, .history-row > button { width: 42px; height: 42px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; }
 .row-actions button:hover, .history-row > button:hover { background: var(--accent-soft); color: var(--accent); }
 
+.owner-section { margin-top: 8px; }
+.owner-notice { margin: 0 0 24px; }
+.owner-settings-form { display: grid; grid-template-columns: 1fr 160px minmax(220px, 1fr) auto; align-items: end; gap: 12px; }
+.owner-settings-form > label, .owner-invite-form > label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.owner-settings-form select, .owner-settings-form input[type="number"], .owner-invite-form input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 13px;
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  outline: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 15px;
+}
+.owner-settings-form select:focus, .owner-settings-form input:focus, .owner-invite-form input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent); }
+.owner-settings-form .owner-toggle { min-height: 48px; padding: 0 4px; display: flex; align-items: center; flex-direction: row; gap: 9px; color: var(--ink); }
+.owner-toggle input { width: 17px; height: 17px; accent-color: var(--accent); }
+.owner-subsection { margin-top: 40px; padding-top: 32px; border-top: 1px solid color-mix(in srgb, var(--rule) 75%, transparent); }
+.owner-subheading { margin-bottom: 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.owner-subheading h3 { margin: 0; font-size: 17px; font-weight: 650; }
+.owner-subheading p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.owner-subheading > svg { width: 22px; height: 22px; color: var(--muted); }
+.owner-invite-form { display: grid; grid-template-columns: 1fr 160px 220px auto; align-items: end; gap: 12px; }
+.owner-user-list { border-top: 1px solid var(--rule); }
+.owner-user-row { min-height: 112px; padding: 18px 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 20px; border-bottom: 1px solid var(--rule); }
+.owner-user-main { min-width: 0; display: grid; gap: 3px; }
+.owner-user-main strong { font-size: 17px; }
+.owner-user-main span { color: var(--muted); font-size: 13px; }
+.owner-user-main small { color: var(--faint); font-size: 12px; line-height: 1.5; }
+.owner-user-actions { display: flex; align-items: center; gap: 6px; }
+.owner-user-actions .button { min-height: 38px; padding: 0 10px; font-size: 12px; }
+
 .history-list { border-top: 1px solid var(--rule); }
 .history-row { position: relative; min-height: 96px; display: grid; grid-template-columns: 1fr 44px; align-items: center; border-bottom: 1px solid var(--rule); }
 .history-row > a { min-width: 0; min-height: 95px; padding: 17px 8px 17px 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 20px; }
@@ -687,6 +726,10 @@ a { color: inherit; text-decoration: none; }
   .settings-actions .push-right { width: 100%; margin: 6px 0 0; }
   .create-code-form, .password-form { grid-template-columns: 1fr; }
   .password-form .push-right { margin-left: 0; }
+  .owner-settings-form, .owner-invite-form { grid-template-columns: 1fr; }
+  .owner-settings-form .owner-toggle { padding: 4px 0; }
+  .owner-user-row { grid-template-columns: 1fr; }
+  .owner-user-actions { flex-wrap: wrap; }
   .history-row > a { grid-template-columns: 1fr; gap: 6px; }
   .history-row a > span { justify-items: start; }
   .row-heading { align-items: flex-start; }

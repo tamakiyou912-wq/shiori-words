@@ -49,7 +49,7 @@ export async function setSessionCookie(token: string, expiresAt: Date) {
 
 export async function clearSessionCookie() {
   const store = await cookies();
-  store.set(sessionCookieName(), "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
+  store.set(sessionCookieName(), "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
 }
 
 export async function getCurrentUser() {
@@ -58,16 +58,21 @@ export async function getCurrentUser() {
 
   try {
     const rows = await getDb()
-      .select({ id: users.id, username: users.username, createdAt: users.createdAt })
+      .select({ id: users.id, username: users.username, role: users.role, status: users.status, createdAt: users.createdAt, lastLoginAt: users.lastLoginAt })
       .from(sessions)
       .innerJoin(users, eq(sessions.userId, users.id))
-      .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date())))
+      .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date()), eq(users.status, "ACTIVE")))
       .limit(1);
     return rows[0] ?? null;
   } catch {
     console.error("Database unavailable while restoring the user session.");
     return null;
   }
+}
+
+export async function getCurrentOwner() {
+  const user = await getCurrentUser();
+  return user?.role === "OWNER" ? user : null;
 }
 
 export async function revokeCurrentSession() {

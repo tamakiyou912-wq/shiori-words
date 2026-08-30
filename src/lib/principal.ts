@@ -4,6 +4,7 @@ import { getDb } from "@/db/client";
 import { guestCodes, guestSessions } from "@/db/schema";
 import { getCurrentUser } from "./auth";
 import { hashToken } from "./security";
+import { ensureSiteSettings } from "./site";
 
 export const guestCookieName = () => process.env.GUEST_COOKIE_NAME || "shiori_guest";
 
@@ -17,6 +18,7 @@ export async function getPrincipal(): Promise<Principal | null> {
 
   const token = (await cookies()).get(guestCookieName())?.value;
   if (!token) return null;
+  if (!(await ensureSiteSettings()).allowGuestCodes) return null;
 
   try {
     const rows = await getDb()
@@ -46,5 +48,5 @@ export async function setGuestCookie(token: string, expiresAt: Date) {
 }
 
 export async function clearGuestCookie() {
-  (await cookies()).set(guestCookieName(), "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
+  (await cookies()).set(guestCookieName(), "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
 }

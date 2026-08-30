@@ -4,6 +4,7 @@ import { getDb } from "@/db/client";
 import { apiCredentials, guestCodes } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
+import { ensureSiteSettings } from "@/lib/site";
 
 const createSchema = z.object({
   name: z.string().trim().max(50).optional(),
@@ -31,6 +32,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return jsonError("请先登录。", 401);
+  if (!(await ensureSiteSettings()).allowGuestCodes) return jsonError("站点当前已关闭体验码功能。", 403);
   const credential = await getDb().query.apiCredentials.findFirst({ columns: { id: true }, where: eq(apiCredentials.userId, user.id) });
   if (!credential) return jsonError("请先配置并保存自己的 API。", 400);
   const parsed = createSchema.safeParse(await request.json().catch(() => null));

@@ -6,6 +6,7 @@ import { clearGuestCookie, setGuestCookie } from "@/lib/principal";
 import { jsonError } from "@/lib/http";
 import { clientIp, enforceRateLimit } from "@/lib/rate-limit";
 import { hashToken, randomToken } from "@/lib/security";
+import { ensureSiteSettings } from "@/lib/site";
 
 const schema = z.object({ code: z.string().trim().min(6).max(32) });
 
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
   }
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("请输入有效的体验码。");
+  if (!(await ensureSiteSettings()).allowGuestCodes) return jsonError("站点当前已关闭体验码功能。", 403);
   const normalized = parsed.data.code.toUpperCase().replace(/\s/g, "");
   const rows = await getDb()
     .select({ id: guestCodes.id, ownerUserId: guestCodes.ownerUserId, maxUses: guestCodes.maxUses, usedUses: guestCodes.usedUses })

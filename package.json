@@ -7,6 +7,8 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
+    "setup": "tsx scripts/setup-env.ts",
+    "setup:env": "tsx scripts/setup-env.ts",
     "build": "next build",
     "deploy:check": "tsx scripts/check-production-env.ts",
     "vercel-build": "npm run deploy:check && npm run db:migrate && next build",
