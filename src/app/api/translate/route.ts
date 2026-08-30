@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { randomBytes } from "node:crypto";
 import { assembleResult, createProvider, AIProviderError } from "@/lib/ai/provider";
 import { createConversation, getConversation, addFollowUp, saveHistory } from "@/lib/conversations";
 import { getCredential } from "@/lib/credentials";
@@ -36,7 +37,11 @@ function streamResponse(run: (send: (event: StreamEvent) => void) => Promise<voi
         controller.close();
       }
     },
-  }), { headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store, no-transform" } });
+  }), { headers: {
+    "Content-Type": "application/x-ndjson; charset=utf-8",
+    "Cache-Control": "no-store, no-transform",
+    "X-Accel-Buffering": "no",
+  } });
 }
 
 const progressiveKeys: Array<keyof TranslationResult> = [
@@ -154,6 +159,11 @@ export async function POST(request: Request) {
         source: plan.baseResult.source ?? "fallback",
       } });
       sendInitialResult(send, plan.baseResult);
+      if (plan.needsAI && hasDictionaryFallback(plan.baseResult)) {
+        // Vercel can coalesce very small first chunks. A one-time incompressible
+        // heartbeat flushes local dictionary sections while the one AI request continues.
+        send({ type: "progress", padding: randomBytes(3_072).toString("base64") });
+      }
       let result = plan.baseResult;
 
       if (plan.needsAI) {

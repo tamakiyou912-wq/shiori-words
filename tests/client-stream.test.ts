@@ -38,4 +38,16 @@ describe("browser result stream", () => {
       if (event.type === "error") throw new Error(event.message);
     })).rejects.toThrow("请先配置 AI API");
   });
+
+  it("accepts a flush heartbeat between local sections and the final result", async () => {
+    const events: StreamEvent[] = [];
+    const response = responseFromChunks([
+      '{"type":"section","data":{"key":"primary","value":"学校"}}\n',
+      `${JSON.stringify({ type: "progress", padding: "x".repeat(4096) })}\n`,
+      '{"type":"done","data":{"result":{"detectedLanguage":"romaji","targetLanguage":"ja","original":"gakkou","translation":"学校"}}}\n',
+    ]);
+
+    await consumeStream(response, (event) => events.push(event));
+    expect(events.map((event) => event.type)).toEqual(["section", "progress", "done"]);
+  });
 });
