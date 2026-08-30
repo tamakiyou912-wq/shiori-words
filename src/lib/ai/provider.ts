@@ -316,7 +316,7 @@ export class OpenAICompatibleProvider implements AIProvider {
     if (!this.config.apiKey || !/^[\x21-\x7e]+$/u.test(this.config.apiKey)) throw new AIProviderError("INVALID_KEY", "API Key 格式不正确，请从 Provider 控制台重新复制完整密钥。");
     let response: Response;
     try {
-      const timeout = AbortSignal.timeout(path === "/models" ? 15_000 : 45_000);
+      const timeout = AbortSignal.timeout(path === "/models" ? 12_000 : 25_000);
       const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
       response = await fetch(url, {
         ...init,
@@ -332,6 +332,18 @@ export class OpenAICompatibleProvider implements AIProvider {
     }
     if (!response.ok) throw await friendlyProviderError(response);
     return response;
+  }
+
+  private async readJson<T>(response: Response): Promise<T> {
+    try {
+      return await response.json() as T;
+    } catch (error) {
+      const name = error instanceof Error ? error.name : "UnknownError";
+      if (name === "TimeoutError" || name === "AbortError") {
+        throw new AIProviderError("UNAVAILABLE", "连接 AI 服务超时，请稍后再试。");
+      }
+      throw new AIProviderError("INVALID_RESPONSE", "AI 服务返回了无法解析的内容。");
+    }
   }
 
   async complete(request: AIRequest): Promise<AICompletion> {
@@ -352,7 +364,7 @@ export class OpenAICompatibleProvider implements AIProvider {
         ],
       }),
     });
-    const payload = await response.json() as CompletionResponse;
+    const payload = await this.readJson<CompletionResponse>(response);
     const content = payload.choices?.[0]?.message?.content;
     if (!content) throw new AIProviderError("INVALID_RESPONSE", "AI 服务没有返回内容。");
     const parsed = parseProviderContent(content);
@@ -368,7 +380,7 @@ export class OpenAICompatibleProvider implements AIProvider {
 
   async listModels() {
     const response = await this.request("/models");
-    const payload = await response.json() as { data?: Array<{ id?: string }> };
+    const payload = await this.readJson<{ data?: Array<{ id?: string }> }>(response);
     return (payload.data ?? []).map((model) => model.id).filter((id): id is string => Boolean(id)).sort();
   }
 

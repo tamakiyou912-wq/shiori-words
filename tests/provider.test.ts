@@ -41,6 +41,15 @@ describe("one-call OpenAI-compatible provider", () => {
     expect(parsed.result.translation).toContain("主要翻译结果");
   });
 
+  it("turns a malformed provider HTTP body into a controlled provider error", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("not-json", { status: 200, headers: { "Content-Type": "application/json" } })));
+    const provider = new OpenAICompatibleProvider({ provider: "deepseek", baseUrl: "https://api.example.test", model: "fast-model", apiKey: "secret" });
+    await expect(provider.complete({ input: "konnichiha", targetLanguage: "auto" })).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
+  });
+
   it("normalizes malformed optional fields independently", () => {
     expect(normalizeProviderSection({ section: "meanings", data: "更自然的口语表达" })).toEqual({
       section: "meanings",

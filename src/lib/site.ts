@@ -21,10 +21,18 @@ export function normalizeRegistrationInvite(code: string) {
 
 export async function ensureSiteSettings() {
   const db = getDb();
-  await db.insert(siteSettings).values({ id: "default" }).onConflictDoNothing();
-  const [settings] = await db.select().from(siteSettings).where(eq(siteSettings.id, "default")).limit(1);
+  let [settings] = await db.select().from(siteSettings).where(eq(siteSettings.id, "default")).limit(1);
+  if (!settings) {
+    await db.insert(siteSettings).values({ id: "default" }).onConflictDoNothing();
+    [settings] = await db.select().from(siteSettings).where(eq(siteSettings.id, "default")).limit(1);
+  }
   if (!settings) throw new SiteError("SITE_SETTINGS_UNAVAILABLE");
   return { ...settings, registrationMode: settings.registrationMode as RegistrationMode };
+}
+
+export async function getHomeSiteState() {
+  const settings = await ensureSiteSettings();
+  return { allowGuestCodes: settings.allowGuestCodes };
 }
 
 export async function hasOwner() {

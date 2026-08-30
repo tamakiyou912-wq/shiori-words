@@ -78,7 +78,7 @@ npm run dev
 
 不要把 `.env`、数据库密码、API Key 或 `ENCRYPTION_KEY` 提交到 Git。
 
-应用的页面、API、Manifest 和 Service Worker 全部使用相对同源 URL，因此不需要 `NEXT_PUBLIC_APP_URL`，也没有硬编码 `localhost` 或生产域名；Vercel Preview、Production 与未来自定义域名会自动工作。Session 使用数据库中的高熵随机 Token，其 SHA-256 Hash 持久化在 PostgreSQL，不依赖进程内存，因此不需要额外的 `AUTH_SECRET` / `SESSION_SECRET`。
+应用的页面、API、Manifest 和 Service Worker 全部使用相对同源 URL，因此不需要 `NEXT_PUBLIC_APP_URL`，也没有硬编码 `localhost` 或生产域名；Vercel Preview、Production 与未来自定义域名会自动工作。Session 使用数据库中的高熵随机 Token，其 SHA-256 Hash 持久化在 PostgreSQL，不依赖进程内存，因此不需要额外的 `AUTH_SECRET` / `SESSION_SECRET`。每次设备登录都会创建独立的 30 天 Session；退出只影响当前设备，修改密码或 Owner 强制注销会撤销该账号的全部 Session。
 
 ## AI Provider
 
@@ -126,6 +126,8 @@ Provider 请求使用低温度、关闭长推理并要求一个完整 JSON 对�
 默认注册模式为“邀请码注册”，普通用户上限为 20（唯一 Owner 不计入）。注册邀请码用于创建正式账号；体验码不创建账号，两者的数据与计数完全分开。
 
 Neon 的 Vercel Integration 可以为 Preview 自动创建隔离 branch。若不使用 Preview 数据库，应关闭 Preview 部署的数据访问，而不是让 Preview 修改 Production 数据。
+
+仓库的 `vercel.json` 默认把 Functions 放在新加坡 `sin1`，与示例正式实例的 Neon 区域一致。自行部署时若数据库位于其他区域，请把 `regions` 改为离数据库最近的单一区域，避免每次页面和 API 请求跨洲访问数据库。
 
 不需要配置服务器公共 DeepSeek Key；每个正式用户使用自己在设置页保存的 Key。连接 GitHub 后，向 `main` push 会自动触发新的 Production Deployment。Vercel 的文件系统不是持久化数据库；不要在生产环境使用 `file:` URL。
 

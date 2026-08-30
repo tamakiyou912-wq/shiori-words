@@ -60,7 +60,9 @@ button, input, textarea, select { font: inherit; }
 button, a, summary, select { touch-action: manipulation; }
 button, a, summary, select { -webkit-tap-highlight-color: rgb(180 72 53 / 18%); }
 button, a, summary, select { -webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 18%, transparent); }
+button, a, summary { -webkit-user-select: none; user-select: none; }
 button { color: inherit; }
+button:not(:disabled):active, a:active, summary:active { opacity: .76; }
 a { color: inherit; text-decoration: none; }
 
 :focus-visible {
@@ -203,6 +205,14 @@ a { color: inherit; text-decoration: none; }
 .user-menu-popover a, .user-menu-name { min-height: 44px; padding: 8px 10px; display: flex; align-items: center; gap: 8px; border-radius: 6px; font-size: 14px; }
 .user-menu-popover a:hover { background: var(--accent-soft); }
 .user-menu-name { color: var(--muted); border-bottom: 1px solid var(--rule); border-radius: 0; }
+.header-auth-placeholder {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  opacity: .35;
+  pointer-events: none;
+}
 
 .main-content, .page-content {
   width: min(100% - 36px, 880px);
@@ -211,6 +221,16 @@ a { color: inherit; text-decoration: none; }
 }
 
 .translator { scroll-margin-top: 28px; }
+.translator-shell { pointer-events: none; }
+.translator-shell-input {
+  height: 80px;
+  padding: 16px 58px 14px 28px;
+  color: var(--faint);
+  font-size: clamp(21px, 3.4vw, 30px);
+  line-height: 1.45;
+}
+.translator-shell .translation-controls { justify-content: space-between; color: var(--muted); font-size: 13px; }
+.translator-shell .translate-button { opacity: .58; }
 .guest-status {
   margin-bottom: 14px;
   display: flex;
@@ -338,7 +358,20 @@ a { color: inherit; text-decoration: none; }
   color: var(--error);
   font-size: 14px;
 }
+.inline-error-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.inline-error-row span { min-width: 0; }
+.compact-button { min-height: 44px; padding: 0 12px; flex: 0 0 auto; }
 .form-success { color: var(--success); }
+
+.route-loading { min-height: 42vh; }
+.route-loading-line {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.route-loading-line span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
 
 .access-panel {
   margin-top: 28px;
@@ -700,6 +733,7 @@ a { color: inherit; text-decoration: none; }
   .top-nav > a span { display: none; }
   .main-content, .page-content { padding-top: 30px; }
   .translation-field textarea { height: 96px; min-height: 96px; padding: 16px 48px 14px 20px; }
+  .translator-shell-input { height: 96px; padding: 16px 48px 14px 20px; }
   .translation-controls { padding-left: 14px; gap: 8px; flex-wrap: wrap; }
   .translation-controls label { flex: 1; }
   .script-assist { padding: 0; flex-wrap: wrap; }
@@ -707,6 +741,7 @@ a { color: inherit; text-decoration: none; }
   .script-assist button { flex: 1 1 29%; min-width: 112px; }
   .shortcut-hint { display: none; }
   .translate-button { min-width: 92px; }
+  .inline-error-row { align-items: flex-start; }
   .access-panel { grid-template-columns: 1fr; }
   .access-actions { align-items: stretch; flex-direction: column; }
   .access-actions .button { width: 100%; }

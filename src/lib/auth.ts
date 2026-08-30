@@ -1,11 +1,12 @@
 import { compare, hash } from "bcryptjs";
 import { and, eq, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { getDb } from "@/db/client";
 import { sessions, users } from "@/db/schema";
 import { hashToken, randomToken } from "./security";
 
-const SESSION_DAYS = 30;
+export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 export const sessionCookieName = () => process.env.SESSION_COOKIE_NAME || "shiori_session";
 
@@ -31,7 +32,7 @@ export async function verifyPassword(password: string, passwordHash: string) {
 
 export async function createSession(userId: string) {
   const token = randomToken();
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
   await getDb().insert(sessions).values({ tokenHash: hashToken(token), userId, expiresAt });
   return { token, expiresAt };
 }
@@ -44,6 +45,7 @@ export async function setSessionCookie(token: string, expiresAt: Date) {
     sameSite: "lax",
     path: "/",
     expires: expiresAt,
+    maxAge: SESSION_MAX_AGE_SECONDS,
   });
 }
 
@@ -52,7 +54,7 @@ export async function clearSessionCookie() {
   store.set(sessionCookieName(), "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
 }
 
-export async function getCurrentUser() {
+const readCurrentUser = cache(async () => {
   const token = (await cookies()).get(sessionCookieName())?.value;
   if (!token) return null;
 
@@ -68,6 +70,10 @@ export async function getCurrentUser() {
     console.error("Database unavailable while restoring the user session.");
     return null;
   }
+});
+
+export async function getCurrentUser() {
+  return readCurrentUser();
 }
 
 export async function getCurrentOwner() {

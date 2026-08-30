@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { apiCredentials, sessions, users } from "@/db/schema";
-import { createSession, hashPassword, verifyPassword } from "@/lib/auth";
+import { createSession, hashPassword, SESSION_MAX_AGE_SECONDS, verifyPassword } from "@/lib/auth";
 import { getCredentialSummary } from "@/lib/credentials";
 import { decryptSecret, encryptSecret } from "@/lib/security";
 
@@ -42,5 +42,18 @@ describe("credential security", () => {
 
     expect(phoneSession.token).not.toBe(desktopSession.token);
     expect(storedSessions).toHaveLength(2);
+  });
+
+  it("creates a fixed thirty-day persistent server session", async () => {
+    const userId = crypto.randomUUID();
+    await getDb().insert(users).values({ id: userId, username: `expiry-${userId}`, passwordHash: "hash" });
+    const before = Date.now();
+    const session = await createSession(userId);
+    const after = Date.now();
+    const expectedMs = SESSION_MAX_AGE_SECONDS * 1000;
+
+    expect(session.expiresAt.getTime()).toBeGreaterThanOrEqual(before + expectedMs);
+    expect(session.expiresAt.getTime()).toBeLessThanOrEqual(after + expectedMs);
+    expect(SESSION_MAX_AGE_SECONDS).toBe(30 * 24 * 60 * 60);
   });
 });

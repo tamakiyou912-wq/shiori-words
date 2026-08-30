@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import "./globals.css";
-import { AppHeader } from "@/components/app-header";
+import { AppHeaderFallback, AuthenticatedAppHeader } from "@/components/app-header";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
-import { getCurrentUser } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: { default: "詞織 / SHIORI", template: "%s · 詞織" },
@@ -29,13 +29,14 @@ export const viewport: Viewport = {
   ],
 };
 
-export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const user = await getCurrentUser();
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN" data-scroll-behavior="smooth">
       <body>
         <div className="app-shell">
-          <AppHeader user={user ? { username: user.username } : null} />
+          <Suspense fallback={<AppHeaderFallback />}>
+            <AuthenticatedAppHeader />
+          </Suspense>
           {children}
         </div>
         <ServiceWorkerRegistration />

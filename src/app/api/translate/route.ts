@@ -11,7 +11,7 @@ import { getCachedQuery, isPublicCacheable, queryCacheKey, setCachedQuery } from
 import type { QueryTelemetry, StreamEvent, TranslationResult } from "@/lib/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 40;
 
 const requestSchema = z.object({
   input: z.string().trim().min(1).max(2000),
@@ -40,7 +40,8 @@ function streamResponse(run: (send: (event: StreamEvent) => void) => Promise<voi
 }
 
 const progressiveKeys: Array<keyof TranslationResult> = [
-  "translation", "dictionary", "recognition", "correction", "meanings", "suggestions", "katakanaOrigin", "usageNotes",
+  "primary", "translation", "naturalTranslation", "literalTranslation", "dictionary", "recognition", "correction",
+  "meanings", "examples", "suggestions", "alternatives", "sentenceAnalysis", "katakanaOrigin", "usageNotes", "warnings",
 ];
 
 function sendInitialResult(send: (event: StreamEvent) => void, result: TranslationResult) {

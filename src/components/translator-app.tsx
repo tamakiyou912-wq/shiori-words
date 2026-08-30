@@ -8,10 +8,18 @@ import { romajiScriptChoices } from "@/lib/language/preprocess";
 import type { InputInterpretation, StreamEvent, TargetLanguage, TranslationResult } from "@/lib/types";
 
 type FollowUpMessage = { question: string; answer: Partial<TranslationResult> };
+type QueryStatus = "idle" | "enriching" | "local" | "success" | "partial" | "timeout" | "error";
+
+export class QueryTimeoutError extends Error {
+  constructor() {
+    super("请求超时，请重试。");
+    this.name = "QueryTimeoutError";
+  }
+}
 
 const targetNames: Record<TargetLanguage, string> = { auto: "自动判断", zh: "中文", ja: "日语", en: "英语" };
 
-export async function consumeStream(response: Response, onEvent: (event: StreamEvent) => void, signal?: AbortSignal) {
+export async function consumeStream(response: Response, onEvent: (event: StreamEvent) => void, signal?: AbortSignal, idleTimeoutMs = 30_000) {
   if (!response.body) throw new Error("网络连接失败。");
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -20,18 +28,37 @@ export async function consumeStream(response: Response, onEvent: (event: StreamE
   const consumeLine = (raw: string) => {
     const line = raw.trim();
     if (!line) return;
+    let event: StreamEvent;
     try {
-      const event = JSON.parse(line) as StreamEvent;
-      if (!event || typeof event !== "object" || typeof event.type !== "string") return;
-      if (event.type === "done" || event.type === "error") terminal = true;
-      onEvent(event);
+      event = JSON.parse(line) as StreamEvent;
     } catch {
       // A damaged optional line must not erase sections that were already rendered.
+      return;
     }
+    if (!event || typeof event !== "object" || typeof event.type !== "string") return;
+    if (event.type === "done" || event.type === "error") terminal = true;
+    // Consumer errors are intentional control flow (for example a server error event),
+    // so they must not be mistaken for malformed optional JSON.
+    onEvent(event);
   };
   while (true) {
     if (signal?.aborted) throw new DOMException("Request aborted", "AbortError");
-    const { done, value } = await reader.read();
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let chunk: ReadableStreamReadResult<Uint8Array>;
+    try {
+      chunk = await Promise.race([
+        reader.read(),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new QueryTimeoutError()), idleTimeoutMs);
+        }),
+      ]);
+    } catch (error) {
+      await reader.cancel().catch(() => undefined);
+      throw error;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+    const { done, value } = chunk;
     buffer += decoder.decode(value, { stream: !done });
     const lines = buffer.split(/\r?\n/u);
     buffer = done ? "" : (lines.pop() ?? "");
@@ -48,6 +75,7 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
   const [result, setResult] = useState<Partial<TranslationResult> | null>(initialResult);
   const [conversationId, setConversationId] = useState<string | undefined>(initialConversationId);
   const [loading, setLoading] = useState(false);
+  const [queryStatus, setQueryStatus] = useState<QueryStatus>("idle");
   const [error, setError] = useState("");
   const [followUp, setFollowUp] = useState("");
   const [messages, setMessages] = useState<FollowUpMessage[]>([]);
@@ -67,6 +95,7 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
     if (!hasAccess) {
       document.getElementById("access-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
       setError("请先登录或输入体验码。");
+      setQueryStatus("error");
       return;
     }
     activeRequestRef.current?.abort();
@@ -75,18 +104,27 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
     const requestId = ++requestIdRef.current;
     if (suggestedInput) setInput(query);
     setLoading(true);
+    setQueryStatus("enriching");
     setError("");
     setResult({ original: query, translation: "", detectedLanguage: "unknown", targetLanguage: targetLanguage === "auto" ? "ja" : targetLanguage });
     setMessages([]);
     setConversationId(undefined);
+    let receivedLocalResult = false;
     try {
       const response = await fetch("/api/translate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: query, targetLanguage, inputMode }), signal: controller.signal });
       await consumeStream(response, (streamEvent) => {
         if (requestId !== requestIdRef.current) return;
-        if (streamEvent.type === "section") setResult((current) => ({ ...current, [streamEvent.data.key]: streamEvent.data.value }));
+        if (streamEvent.type === "section") {
+          if (streamEvent.data.value !== undefined && streamEvent.data.value !== "") {
+            receivedLocalResult = true;
+            setQueryStatus("local");
+          }
+          setResult((current) => ({ ...current, [streamEvent.data.key]: streamEvent.data.value }));
+        }
         if (streamEvent.type === "meta") setResult((current) => ({ ...current, detectedLanguage: streamEvent.data.detectedLanguage, targetLanguage: streamEvent.data.targetLanguage as TranslationResult["targetLanguage"] }));
         if (streamEvent.type === "done") {
           setResult(streamEvent.data.result);
+          setQueryStatus(streamEvent.data.result.warnings?.length ? "partial" : "success");
           setConversationId(streamEvent.data.conversationId);
           if (streamEvent.data.remainingUses !== undefined) setRemainingUses(streamEvent.data.remainingUses);
         }
@@ -95,7 +133,9 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
       if (requestId === requestIdRef.current) window.setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 40);
     } catch (caught) {
       if (controller.signal.aborted || requestId !== requestIdRef.current) return;
-      setError(caught instanceof Error ? caught.message : "网络连接失败。");
+      const timedOut = caught instanceof QueryTimeoutError;
+      setQueryStatus(timedOut ? (receivedLocalResult ? "partial" : "timeout") : "error");
+      setError(timedOut && receivedLocalResult ? "AI 补充超时，已保留基础结果。" : caught instanceof Error ? caught.message : "网络连接失败。");
       setResult((current) => current && (current.translation || current.dictionary || current.sentenceAnalysis) ? current : null);
     } finally {
       if (requestId === requestIdRef.current) {
@@ -114,6 +154,7 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
     setMessages((current) => [...current, { question: question.trim(), answer: { translation: "" } }]);
     setFollowUp("");
     setLoading(true);
+    setQueryStatus("enriching");
     setError("");
     try {
       const response = await fetch("/api/translate", {
@@ -130,11 +171,13 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
         if (streamEvent.type === "done") {
           setMessages((current) => current.map((message, messageIndex) => messageIndex === index ? { ...message, answer: streamEvent.data.result } : message));
           if (streamEvent.data.remainingUses !== undefined) setRemainingUses(streamEvent.data.remainingUses);
+          setQueryStatus(streamEvent.data.result.warnings?.length ? "partial" : "success");
         }
         if (streamEvent.type === "error") throw new Error(streamEvent.message);
       }, controller.signal);
     } catch (caught) {
       if (controller.signal.aborted || requestId !== requestIdRef.current) return;
+      setQueryStatus(caught instanceof QueryTimeoutError ? "timeout" : "error");
       setError(caught instanceof Error ? caught.message : "网络连接失败。");
       setMessages((current) => current.slice(0, index));
     } finally {
@@ -180,8 +223,8 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
                 </select>
               </label>
               <span className="shortcut-hint">Enter 翻译 · Shift+Enter 换行</span>
-              <button className="button primary translate-button" type="submit" disabled={!input.trim()}>
-                {loading && !result ? "翻译中" : "翻译"}<ArrowRight aria-hidden="true" />
+              <button className="button primary translate-button" type="submit" disabled={loading || !input.trim()} aria-busy={loading}>
+                {loading ? (queryStatus === "local" ? "补充中" : "查询中") : "翻译"}<ArrowRight aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -189,18 +232,25 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
         {scriptChoices && (
           <div className="script-assist" aria-label="罗马字输入候选">
             <span>输入识别</span>
-            <button type="button" onClick={() => void translate(undefined, scriptChoices.hiragana, "hiragana")}>
+            <button type="button" disabled={loading} onClick={() => void translate(undefined, scriptChoices.hiragana, "hiragana")}>
               <small>平假名</small><strong lang="ja">{scriptChoices.hiragana}</strong>
             </button>
-            <button type="button" onClick={() => void translate(undefined, scriptChoices.katakana, "katakana")}>
+            <button type="button" disabled={loading} onClick={() => void translate(undefined, scriptChoices.katakana, "katakana")}>
               <small>片假名</small><strong lang="ja">{scriptChoices.katakana}</strong>
             </button>
-            <button type="button" onClick={() => void translate(undefined, input, "kanji")}>
+            <button type="button" disabled={loading} onClick={() => void translate(undefined, input, "kanji")}>
               <small>汉字・词语</small><strong>按读音联想</strong>
             </button>
           </div>
         )}
-        {error && <div className="inline-error" role="alert">{error}</div>}
+        {error && (
+          <div className="inline-error inline-error-row" role="alert">
+            <span>{error}</span>
+            {hasAccess && input.trim() && !loading && (
+              <button type="button" className="button ghost compact-button" onClick={() => void translate()}>重试</button>
+            )}
+          </div>
+        )}
       </section>
 
       {!hasAccess && <AccessPanel allowGuestCodes={allowGuestCodes} />}

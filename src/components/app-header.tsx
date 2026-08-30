@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ClockCounterClockwise, GearSix, SignIn, UserCircle } from "@phosphor-icons/react/dist/ssr";
+import { getCurrentUser } from "@/lib/auth";
 
 export function AppHeader({ user }: { user: { username: string } | null }) {
   return (
@@ -31,6 +32,28 @@ export function AppHeader({ user }: { user: { username: string } | null }) {
             <Link href="/login" aria-label="登录或使用体验码"><SignIn aria-hidden="true" /> <span>登录 / 体验</span></Link>
           )}
         </nav>
+      </div>
+    </header>
+  );
+}
+
+export async function AuthenticatedAppHeader() {
+  const user = await getCurrentUser();
+  return <AppHeader user={user ? { username: user.username } : null} />;
+}
+
+export function AppHeaderFallback() {
+  return (
+    <header className="site-header">
+      <div className="header-inner">
+        <Link href="/" className="wordmark" aria-label="詞織首页">
+          <span className="wordmark-line">
+            <span className="wordmark-main">詞織</span>
+            <span className="wordmark-tagline">words, woven clearly.</span>
+          </span>
+          <span className="wordmark-sub">SHIORI</span>
+        </Link>
+        <div className="header-auth-placeholder" aria-hidden="true" />
       </div>
     </header>
   );
