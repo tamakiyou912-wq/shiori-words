@@ -171,7 +171,6 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
               onCompositionEnd={() => { isComposingRef.current = false; }}
               placeholder="输入中文、日语、英语或罗马字……"
               rows={2}
-              autoFocus
             />
             {input && <button className="clear-input" type="button" aria-label="清空输入" onClick={() => setInput("")}><X aria-hidden="true" /></button>}
             <div className="translation-controls">

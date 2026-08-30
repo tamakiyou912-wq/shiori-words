@@ -28,15 +28,17 @@ export function AuthForm({ mode, site }: { mode: "login" | "register"; site: Reg
     event.preventDefault();
     setLoading(true);
     setError("");
-    const response = await fetch(`/api/auth/${mode}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password, ...(isRegister ? { inviteCode } : {}) }) });
-    const payload = await response.json();
-    setLoading(false);
-    if (!response.ok) {
-      setError(payload.error || "操作失败，请重试。");
-      return;
+    try {
+      const response = await fetch(`/api/auth/${mode}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password, ...(isRegister ? { inviteCode } : {}) }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "操作失败，请重试。");
+      router.push(isRegister ? "/settings?welcome=1" : "/");
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "网络连接失败，请重试。");
+    } finally {
+      setLoading(false);
     }
-    router.push(isRegister ? "/settings?welcome=1" : "/");
-    router.refresh();
   }
 
   return (
@@ -50,7 +52,7 @@ export function AuthForm({ mode, site }: { mode: "login" | "register"; site: Reg
           <p className="status-banner error" role="status">{!site.ownerReady ? "站点尚未完成 Owner 初始化。" : site.atCapacity ? "当前实例已达到用户上限。" : "当前实例已关闭注册。"}</p>
         ) : <form onSubmit={submit} className="stack-form">
           <label>用户名
-            <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" minLength={3} maxLength={32} required autoFocus />
+            <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" minLength={3} maxLength={32} required />
           </label>
           <label>密码
             <span className="password-field">

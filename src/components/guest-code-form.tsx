@@ -14,19 +14,21 @@ export function GuestCodeForm({ id = "guest-code" }: { id?: string }) {
     event.preventDefault();
     setLoading(true);
     setError("");
-    const response = await fetch("/api/guest/activate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    });
-    const payload = await response.json();
-    setLoading(false);
-    if (!response.ok) {
-      setError(payload.error || "体验码无法使用。");
-      return;
+    try {
+      const response = await fetch("/api/guest/activate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "体验码无法使用。");
+      router.push("/");
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "网络连接失败，请重试。");
+    } finally {
+      setLoading(false);
     }
-    router.push("/");
-    router.refresh();
   }
 
   return (

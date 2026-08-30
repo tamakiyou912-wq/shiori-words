@@ -38,7 +38,7 @@ export function SetupForm() {
   return (
     <form onSubmit={submit} className="stack-form">
       <label>Owner 初始化令牌
-        <input type="password" value={setupToken} onChange={(event) => setSetupToken(event.target.value)} autoComplete="off" required autoFocus />
+        <input type="password" value={setupToken} onChange={(event) => setSetupToken(event.target.value)} autoComplete="off" required />
       </label>
       <label>Owner 用户名
         <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" minLength={3} maxLength={32} required />

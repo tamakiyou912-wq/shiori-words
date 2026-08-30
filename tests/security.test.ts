@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { apiCredentials, users } from "@/db/schema";
-import { hashPassword, verifyPassword } from "@/lib/auth";
+import { apiCredentials, sessions, users } from "@/db/schema";
+import { createSession, hashPassword, verifyPassword } from "@/lib/auth";
 import { getCredentialSummary } from "@/lib/credentials";
 import { decryptSecret, encryptSecret } from "@/lib/security";
 
@@ -32,5 +32,15 @@ describe("credential security", () => {
     expect(JSON.stringify(summary)).not.toContain("encryptedKey");
     const stored = await getDb().query.apiCredentials.findFirst({ where: eq(apiCredentials.userId, userId) });
     expect(stored?.encryptedKey).not.toContain("sk-secret");
+  });
+
+  it("keeps independent sessions for simultaneous devices", async () => {
+    const userId = crypto.randomUUID();
+    await getDb().insert(users).values({ id: userId, username: `sessions-${userId}`, passwordHash: "hash" });
+    const [phoneSession, desktopSession] = await Promise.all([createSession(userId), createSession(userId)]);
+    const storedSessions = await getDb().query.sessions.findMany({ where: eq(sessions.userId, userId) });
+
+    expect(phoneSession.token).not.toBe(desktopSession.token);
+    expect(storedSessions).toHaveLength(2);
   });
 });
