@@ -74,6 +74,13 @@ function logTelemetry(telemetry: QueryTelemetry) {
   });
 }
 
+function diagnosticCode(error: unknown) {
+  if (error instanceof AIProviderError) return error.code;
+  if (error && typeof error === "object" && "code" in error && typeof error.code === "string") return error.code;
+  if (error instanceof Error && /^[A-Z][A-Z0-9_]+$/u.test(error.message)) return error.message;
+  return error instanceof Error ? error.name : "UNKNOWN";
+}
+
 export async function POST(request: Request) {
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return streamResponse(async (send) => send({ type: "error", message: "请输入有效的查询内容。", code: "INVALID_INPUT" }));
@@ -84,14 +91,17 @@ export async function POST(request: Request) {
   return streamResponse(async (send) => {
     let guestReserved = false;
     let remainingUses: number | undefined;
+    let stage = "rate-limit";
     const started = performance.now();
     try {
       await enforceRateLimit(`ip:${clientIp(request)}`, 30);
       const payload = parsed.data;
+      stage = "conversation";
       let conversation = payload.conversationId ? await getConversation(principal, payload.conversationId) : null;
       if (payload.followUp && !conversation) throw new Error("CONVERSATION_NOT_FOUND");
 
       if (payload.followUp && conversation) {
+        stage = "credential";
         const credential = await getCredential(principal.credentialOwnerId);
         if (!credential) throw new Error("API_CREDENTIAL_REQUIRED");
         if (principal.kind === "guest") {
@@ -106,6 +116,7 @@ export async function POST(request: Request) {
           source: "ai",
         } });
         const aiStarted = performance.now();
+        stage = "provider";
         const completion = await createProvider(credential).complete({
           input: conversation.context.original,
           targetLanguage: payload.targetLanguage,
@@ -116,6 +127,7 @@ export async function POST(request: Request) {
         });
         const result = assembleResult(conversation.context.original, payload.targetLanguage, completion.sections);
         const answer = result.translation || result.naturalTranslation || result.primary || "";
+        stage = "follow-up-persist";
         await addFollowUp(conversation.id, conversation.context, payload.followUp, answer);
         const telemetry: QueryTelemetry = {
           normalizeMs: 0,
@@ -130,6 +142,7 @@ export async function POST(request: Request) {
         return;
       }
 
+      stage = "prepare-query";
       const plan = await prepareQuery(payload.input, payload.targetLanguage, payload.inputMode);
       send({ type: "meta", data: {
         detectedLanguage: plan.detectedLanguage,
@@ -140,6 +153,7 @@ export async function POST(request: Request) {
       let result = plan.baseResult;
 
       if (plan.needsAI) {
+        stage = "credential";
         const credential = await getCredential(principal.credentialOwnerId);
         if (!credential) {
           if (!hasDictionaryFallback(result)) throw new Error("API_CREDENTIAL_REQUIRED");
@@ -165,6 +179,7 @@ export async function POST(request: Request) {
             }
             const aiStarted = performance.now();
             try {
+              stage = "provider";
               const completion = await createProvider(credential).complete({
                 input: payload.input,
                 targetLanguage: payload.targetLanguage,
@@ -196,13 +211,18 @@ export async function POST(request: Request) {
       }
 
       if (request.signal.aborted) throw new DOMException("Request aborted", "AbortError");
+      stage = "conversation-persist";
       const conversationId = await createConversation(principal, result);
       conversation = await getConversation(principal, conversationId);
-      if (principal.kind === "user") await saveHistory(principal.userId, conversationId, result);
+      if (principal.kind === "user") {
+        stage = "history-persist";
+        await saveHistory(principal.userId, conversationId, result);
+      }
       plan.telemetry.totalMs = performance.now() - started;
       logTelemetry(plan.telemetry);
       send({ type: "done", data: { result, conversationId: conversation?.id ?? conversationId, remainingUses, telemetry: process.env.NODE_ENV === "development" ? plan.telemetry : undefined } });
     } catch (error) {
+      console.error("[translate] request failed", { stage, code: diagnosticCode(error) });
       if (guestReserved && principal.kind === "guest") await releaseGuestUse(principal.guestCodeId).catch(() => undefined);
       if (request.signal.aborted) return;
       if (error instanceof AIProviderError) {
