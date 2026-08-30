@@ -75,9 +75,13 @@ function logTelemetry(telemetry: QueryTelemetry) {
 }
 
 function diagnosticCode(error: unknown) {
-  if (error instanceof AIProviderError) return error.code;
-  if (error && typeof error === "object" && "code" in error && typeof error.code === "string") return error.code;
-  if (error instanceof Error && /^[A-Z][A-Z0-9_]+$/u.test(error.message)) return error.message;
+  let current = error;
+  for (let depth = 0; depth < 4 && current && typeof current === "object"; depth += 1) {
+    if (current instanceof AIProviderError) return current.code;
+    if ("code" in current && typeof current.code === "string") return current.code;
+    if (current instanceof Error && /^[A-Z][A-Z0-9_]+$/u.test(current.message)) return current.message;
+    current = "cause" in current ? current.cause : undefined;
+  }
   return error instanceof Error ? error.name : "UNKNOWN";
 }
 
