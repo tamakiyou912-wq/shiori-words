@@ -16,7 +16,7 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   try {
-    await enforceRateLimit(`owner-setup:${clientIp(request)}`, 6, 30 * 60_000);
+    await enforceRateLimit(`owner-setup:${clientIp(request)}`, 20, 10 * 60_000);
   } catch {
     return jsonError("初始化尝试过于频繁，请稍后再试。", 429);
   }
