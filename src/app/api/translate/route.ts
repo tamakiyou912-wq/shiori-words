@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { randomBytes } from "node:crypto";
 import { assembleResult, createProvider, AIProviderError } from "@/lib/ai/provider";
 import { createConversation, getConversation, addFollowUp, saveHistory } from "@/lib/conversations";
 import { getCredential } from "@/lib/credentials";
@@ -22,20 +21,26 @@ const requestSchema = z.object({
   inputMode: z.enum(["auto", "hiragana", "katakana", "kanji"]).default("auto"),
 });
 
-function streamResponse(run: (send: (event: StreamEvent) => void) => Promise<void>) {
+export function streamResponse(run: (send: (event: StreamEvent) => void) => Promise<void>) {
   const encoder = new TextEncoder();
   return new Response(new ReadableStream({
-    async start(controller) {
+    start(controller) {
       let open = true;
       const send = (event: StreamEvent) => {
         if (open) controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       };
-      try {
-        await run(send);
-      } finally {
-        open = false;
-        controller.close();
-      }
+      // Returning the async task from start() keeps the stream in its starting
+      // state, so browsers cannot read local sections until AI work finishes.
+      // Run it in the background and return immediately to expose each chunk.
+      void run(send)
+        .catch((error) => {
+          const friendly = publicError(error);
+          send({ type: "error", message: friendly.message, code: friendly.code });
+        })
+        .finally(() => {
+          open = false;
+          controller.close();
+        });
     },
   }), { headers: {
     "Content-Type": "application/x-ndjson; charset=utf-8",
@@ -159,11 +164,6 @@ export async function POST(request: Request) {
         source: plan.baseResult.source ?? "fallback",
       } });
       sendInitialResult(send, plan.baseResult);
-      if (plan.needsAI && hasDictionaryFallback(plan.baseResult)) {
-        // Vercel can coalesce very small first chunks. A one-time incompressible
-        // heartbeat flushes local dictionary sections while the one AI request continues.
-        send({ type: "progress", padding: randomBytes(3_072).toString("base64") });
-      }
       let result = plan.baseResult;
 
       if (plan.needsAI) {
