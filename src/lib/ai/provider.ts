@@ -145,7 +145,7 @@ export function userPrompt(request: AIRequest) {
     fields: sentence
       ? "translation;sentenceAnalysis{japanese,reading,romaji,chinese,english,tokens:[{surface,reading,romaji,meaning}],variants:[{label,japanese,reading,chinese,english}](2 registers)}"
       : "dictionary{surface,reading,chineseMeaning,englishMeaning};examples:[{japanese,chinese}](1-2);usageNotes:[short context if useful]",
-    katakana: katakana ? "If the answer is a katakana word, include katakanaInfo{sourceExpression:foreign expansion/construction NOT romaji,naturalEnglish:[1-2 modern equivalents],kind:loan|abbreviation|wasei|shift|nonEnglish,sourceLanguage:only if certain,usageNote:brief distinction if needed}. Expand abbreviations; do not confuse similar-sounding English. Omit repeated dictionary.englishMeaning." : undefined,
+    katakana: katakana ? "For a katakana answer include katakanaInfo{sourceExpression:foreign expansion/construction NOT romaji,naturalEnglish:[1-2 equivalents],kind:loan|abbreviation|wasei|shift|nonEnglish,sourceLanguage?:only certain,usageNote?:one short sentence}. loan=unchanged borrowing; abbreviation=Japanese shortening; wasei=Japanese-coined English combination; shift=changed meaning. If construction differs from natural English, explicitly warn against using the literal form in English. Do not invent historical etymology. Omit repeated dictionary.englishMeaning." : undefined,
   });
 }
 
