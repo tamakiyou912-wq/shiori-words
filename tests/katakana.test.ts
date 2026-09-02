@@ -7,6 +7,7 @@ import { assembleResult, parseProviderContent, reasoningPolicy, OpenAICompatible
 import { CACHE_SCHEMA_VERSION, queryCacheKey } from "@/lib/query/cache";
 import type { TranslationResult } from "@/lib/types";
 import { prepareQuery, mergeAIResult } from "@/lib/query/pipeline";
+import { applyCuratedEnrichment } from "@/lib/language/dictionary";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -43,6 +44,11 @@ describe("katakana learning presentation", () => {
     expect(katakanaPresentation({dictionary:{surface:"コンセント",englishMeaning:"power outlet"},katakanaOrigin:{explanation:"歴史借用",actualEnglish:"electrical outlet / power outlet"}})?.naturalEnglish).toEqual(["electrical outlet","power outlet"]);
     expect(katakanaPresentation({dictionary:{surface:"ホテル",englishMeaning:"hotel"}})?.naturalEnglish).toEqual(["hotel"]);
     expect(katakanaPresentation({dictionary:{surface:"学校",englishMeaning:"school"}})).toBeUndefined();
+  });
+  it("does not let AI replace reviewed loanword distinctions with a false friend",()=>{
+    const result=applyCuratedEnrichment({original:"クレーム",translation:"クレーム",detectedLanguage:"ja",targetLanguage:"zh",dictionary:{surface:"クレーム"},katakanaInfo:{sourceExpression:"claim",naturalEnglish:["claim"],kind:"loan"}});
+    expect(result.katakanaInfo?.kind).toBe("shift");
+    expect(katakanaPresentation(result)?.naturalEnglish).toContain("complaint");
   });
   it.each(["学校","こんにちは","モバイルバッテリー","インターネット","語彙プリント"])("hides Romaji by default with a keyboard accessible toggle: %s", (surface) => {
     const html = renderToStaticMarkup(createElement(TranslationResultView,{result:{dictionary:{surface,reading:"がっこう",romaji:"gakkou"}}}));

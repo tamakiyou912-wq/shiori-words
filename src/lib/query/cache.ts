@@ -1,6 +1,6 @@
 import type { TranslationResult } from "@/lib/types";
 
-export const CACHE_SCHEMA_VERSION = "query-v12-katakana";
+export const CACHE_SCHEMA_VERSION = "query-v13-katakana";
 const MAX_ENTRIES = 256;
 const TTL_MS = 24 * 60 * 60 * 1000;
 

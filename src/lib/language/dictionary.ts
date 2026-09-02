@@ -50,11 +50,21 @@ export function applyCuratedEnrichment(result: TranslationResult): TranslationRe
     katakanaInfo: !curated.origin.source ? {
       ...result.katakanaInfo,
       kind: "shift",
+      formationNote: undefined,
+      isWaseiEigo: undefined,
       sourceExpression: undefined,
       sourceLanguage: undefined,
       naturalEnglish: curated.origin.actualEnglish?.split(/\s*\/\s*/u),
       usageNote: curated.origin.explanation,
-    } : result.katakanaInfo,
+    } : {
+      ...result.katakanaInfo,
+      sourceExpression: curated.origin.source,
+      naturalEnglish: curated.origin.actualEnglish?.split(/\s*\/\s*/u),
+      kind: curated.origin.waseiEigo ? "wasei" : "shift",
+      formationNote: undefined,
+      isWaseiEigo: curated.origin.waseiEigo,
+      usageNote: curated.origin.explanation,
+    },
     usageNotes: notes.length ? notes : undefined,
   };
 }
