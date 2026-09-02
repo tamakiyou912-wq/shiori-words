@@ -53,7 +53,7 @@ export function streamResponse(run: (send: (event: StreamEvent) => void) => Prom
 
 const progressiveKeys: Array<keyof TranslationResult> = [
   "primary", "translation", "naturalTranslation", "literalTranslation", "dictionary", "recognition", "correction",
-  "meanings", "examples", "suggestions", "alternatives", "sentenceAnalysis", "katakanaOrigin", "usageNotes", "warnings",
+  "meanings", "examples", "suggestions", "alternatives", "sentenceAnalysis", "katakanaOrigin", "katakanaInfo", "usageNotes", "warnings",
 ];
 
 function sendInitialResult(send: (event: StreamEvent) => void, result: TranslationResult) {

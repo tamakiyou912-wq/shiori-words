@@ -1,5 +1,5 @@
 import { Converter } from "opencc-js";
-import { toRomaji } from "wanakana";
+import { toHiragana, toRomaji } from "wanakana";
 import type { InputInterpretation, Language, QueryTelemetry, QueryType, TargetLanguage, TranslationResult } from "@/lib/types";
 import { applyCuratedEnrichment } from "@/lib/language/dictionary";
 import { lookupDictionary, resolveJapaneseInput, type DictionaryMatch, type JapaneseResolution } from "@/lib/language/jmdict";
@@ -230,6 +230,12 @@ export function mergeAIResult(base: TranslationResult, ai: Partial<TranslationRe
   const preserveDictionaryFacts = (base.detectedLanguage === "ja" || base.detectedLanguage === "romaji" || base.type === "mixed")
     && (base.confidence ?? 0) >= 0.8;
   const composedExpression = base.dictionary?.partOfSpeech === "组合表达";
+  // A concatenation is not an exact headword. Permit an orthographic repair
+  // only when AI supplies the same pronunciation; never replace exact entries.
+  const readingKey = (value: string) => toHiragana(value.normalize("NFKC")).replace(/[\s・]/gu, "");
+  const repairedComposition = Boolean(composedExpression && ai.dictionary?.surface && ai.dictionary?.reading && base.dictionary?.reading
+    && ai.dictionary.surface !== base.dictionary.surface
+    && readingKey(ai.dictionary.reading) === readingKey(base.dictionary.reading));
   const chineseFromText = [
     ai.meanings?.find((meaning) => meaning.chinese)?.chinese,
     ai.naturalTranslation,
@@ -245,6 +251,7 @@ export function mergeAIResult(base: TranslationResult, ai: Partial<TranslationRe
     ? {
         ...ai.dictionary,
         ...base.dictionary,
+        ...(repairedComposition ? { surface: ai.dictionary!.surface, reading: ai.dictionary!.reading } : {}),
         chineseMeaning: enrichedChinese,
         englishMeaning: composedExpression
           ? ai.dictionary?.englishMeaning ?? base.dictionary?.englishMeaning
@@ -273,7 +280,7 @@ export function mergeAIResult(base: TranslationResult, ai: Partial<TranslationRe
         ? ai.sentenceAnalysis.chinese
         : ai.sentenceAnalysis.english
     : undefined;
-  const meanings = rankMeanings(ai.meanings?.length ? ai.meanings : base.meanings, dictionary);
+  const meanings = rankMeanings(ai.meanings?.length ? ai.meanings : repairedComposition ? undefined : base.meanings, dictionary);
   const selectedOrthography = meanings?.[0]?.japanese;
   if (
     dictionary
@@ -290,7 +297,7 @@ export function mergeAIResult(base: TranslationResult, ai: Partial<TranslationRe
   const translation = preserveResolvedJapanese
     ? dictionary!.surface
     : ai.translation?.trim() || ai.naturalTranslation?.trim() || sentenceTranslation?.trim() || dictionary?.surface || base.translation || base.normalizedInput || base.original;
-  const suggestions = rankSuggestions(ai.suggestions?.length ? ai.suggestions : base.suggestions, dictionary);
+  const suggestions = rankSuggestions(ai.suggestions?.length ? ai.suggestions : repairedComposition ? undefined : base.suggestions, dictionary);
   const result: TranslationResult = {
     ...base,
     ...ai,
@@ -307,8 +314,8 @@ export function mergeAIResult(base: TranslationResult, ai: Partial<TranslationRe
     usageNotes: mergeUniqueStrings(base.usageNotes, ai.usageNotes).slice(0, 5),
     alternatives: mergeUniqueStrings(ai.alternatives, base.alternatives).slice(0, 6),
     suggestions,
-    recognition: base.recognition,
-    correction: ai.correction ?? base.correction,
+    recognition: repairedComposition && base.recognition ? { ...base.recognition, resolved: dictionary!.surface, segments: [{ source: base.original, kind: "romaji", reading: dictionary!.reading, resolved: dictionary!.surface }] } : base.recognition,
+    correction: repairedComposition ? { input: base.original, normalized: dictionary!.surface, note: "保留读音，采用自然的日语表记。" } : ai.correction ?? base.correction,
     source: base.source === "dictionary" ? "hybrid" : "ai",
     confidence: Math.max(base.confidence ?? 0, 0.85),
   };

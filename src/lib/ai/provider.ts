@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { CredentialConfig } from "@/lib/credentials";
 import type { InputInterpretation, ProviderUsage, TargetLanguage, TranslationResult } from "@/lib/types";
 import { detectLanguage, normalizeInput, resolveTarget } from "@/lib/language/preprocess";
+import { isKatakanaWord, normalizeKatakanaInfo } from "@/lib/language/katakana";
 
 const sectionNames = [
   "translation",
@@ -13,6 +14,7 @@ const sectionNames = [
   "examples",
   "usageNotes",
   "katakanaOrigin",
+  "katakanaInfo",
   "correction",
   "alternatives",
   "suggestions",
@@ -69,9 +71,14 @@ function providerUrl(baseUrl: string, path: string) {
 
 /** Stable prefix: keep dynamic data out so provider prompt caching can match it. */
 export function systemPrompt() {
-  return `You are SHIORI, a concise Chinese-Japanese-English language assistant. Output one JSON object only, no markdown.
-Use only relevant optional fields: translation,naturalTranslation,literalTranslation,dictionary,meanings,examples,usageNotes,katakanaOrigin,correction,alternatives,sentenceAnalysis.
-Keep supplied reading facts. For target ja, use natural Japanese, not blind transliteration. A word needs dictionary.surface, natural chineseMeaning, englishMeaning, brief context, and at most 3 examples. For an ambiguous isolated word, include 2-3 common senses instead of silently choosing a niche one. A sentence needs sentenceAnalysis with japanese,reading,romaji,chinese,english,tokens and 2-4 register variants; do not stack redundant equivalents. For katakana, explain its Japanese meaning, source, actual modern English, and wasei-eigo status. Be brief; preserve partial facts when uncertain and never invent. Use Simplified Chinese for learning notes.`;
+  return `SHIORI: Japanese/Chinese/English learning. Return JSON only. Preserve known dictionary facts; omit repeated facts and redundant translations. Translate naturally, not phonetically. Notes in Simplified Chinese. Include 1-2 short examples; 2-3 meanings only when genuinely ambiguous. Never invent origins: omit uncertain provenance. Source/word construction is NOT necessarily natural English. All fields optional; keep useful partial results.`;
+}
+
+/** Local decision only: routine lookups never spend tokens on reasoning. */
+export function reasoningPolicy(request: AIRequest): "disabled" | "low" {
+  const text = request.followUp ?? request.input;
+  const nuancedFollowUp = Boolean(request.followUp && request.context && /为什么|为何|区别|差别|语法|不自然|ニュアンス|違い|なぜ|why|difference|nuance/iu.test(text));
+  return nuancedFollowUp || text.length > 240 ? "low" : "disabled";
 }
 
 function isLikelySentence(input: string) {
@@ -87,21 +94,14 @@ function compactSeed(seed?: Partial<TranslationResult>) {
   const composed = seed.dictionary?.partOfSpeech === "组合表达";
   const ambiguousSource = seed.detectedLanguage === "zh" || seed.detectedLanguage === "en";
   return {
-    type: seed.type,
-    normalizedInput: seed.normalizedInput,
-    primary: seed.primary,
     dictionary: seed.dictionary && !ambiguousSource ? {
-      ...seed.dictionary,
+      surface: composed ? undefined : seed.dictionary.surface,
+      reading: seed.dictionary.reading,
+      partOfSpeech: composed ? undefined : seed.dictionary.partOfSpeech,
       englishMeaning: composed ? undefined : seed.dictionary.englishMeaning,
-      chineseMeaning: undefined,
     } : undefined,
-    recognition: seed.recognition ? {
-      normalized: seed.recognition.normalized,
-      reading: seed.recognition.reading,
-      resolved: seed.recognition.resolved,
-      segments: seed.recognition.segments.map(({ source, kind, reading, resolved }) => ({ source, kind, reading, resolved })),
-    } : undefined,
-    candidateMeanings: seed.meanings?.slice(0, 5),
+    tentativeSegments: composed ? seed.recognition?.segments.map(({ resolved }) => resolved).filter(Boolean) : undefined,
+    candidateMeanings: composed ? undefined : seed.meanings?.slice(0, 3),
   };
 }
 
@@ -129,16 +129,23 @@ export function userPrompt(request: AIRequest) {
       context,
     });
   }
+  const sentence = isLikelySentence(request.input);
+  const composed = request.seed?.dictionary?.partOfSpeech === "组合表达";
+  const katakana = isKatakanaWord(request.seed?.dictionary?.surface ?? request.input)
+    || (detected === "romaji" && (!request.seed?.dictionary || composed));
+  const known = compactSeed(request.seed);
   return JSON.stringify({
-    task: isLikelySentence(request.input) ? "sentence" : "lookup-or-translation",
+    task: sentence ? "sentence" : "word",
     input: normalizeInput(request.input),
     detected,
     target,
-    interpretation: request.inputMode ?? "auto",
-    known: compactSeed(request.seed),
-    required: isLikelySentence(request.input)
-      ? ["sentenceAnalysis.japanese", "sentenceAnalysis.chinese", "sentenceAnalysis.english", "sentenceAnalysis.tokens", "sentenceAnalysis.variants"]
-      : ["dictionary.chineseMeaning", "dictionary.englishMeaning", "examples"],
+    interpretation: request.inputMode !== "auto" ? request.inputMode : undefined,
+    known,
+    segmentation: composed ? "Tentative segmentation, not a dictionary headword. Fix unnatural orthography while preserving the known pronunciation." : undefined,
+    fields: sentence
+      ? "translation;sentenceAnalysis{japanese,reading,romaji,chinese,english,tokens:[{surface,reading,romaji,meaning}],variants:[{label,japanese,reading,chinese,english}](2 registers)}"
+      : "dictionary{surface,reading,chineseMeaning,englishMeaning};examples:[{japanese,chinese}](1-2);usageNotes:[short context if useful]",
+    katakana: katakana ? "If the answer is a katakana word, include katakanaInfo{sourceExpression:foreign expansion/construction NOT romaji,naturalEnglish:[1-2 modern equivalents],kind:loan|abbreviation|wasei|shift|nonEnglish,sourceLanguage:only if certain,usageNote:brief distinction if needed}. Expand abbreviations; do not confuse similar-sounding English. Omit repeated dictionary.englishMeaning." : undefined,
   });
 }
 
@@ -175,6 +182,10 @@ function normalizeObjectList(value: unknown, keys: readonly string[], stringKey:
 /** Normalizes every field independently, so one malformed optional field cannot drop the result. */
 export function normalizeProviderSection(section: ProviderSection): ProviderSection | null {
   const value = section.data;
+  if (section.section === "katakanaInfo") {
+    const data = normalizeKatakanaInfo(value);
+    return data ? { ...section, data } : null;
+  }
   if (["translation", "naturalTranslation", "literalTranslation"].includes(section.section)) {
     const content = nonEmptyString(value);
     return content ? { ...section, data: content } : null;
@@ -348,16 +359,19 @@ export class OpenAICompatibleProvider implements AIProvider {
 
   async complete(request: AIRequest): Promise<AICompletion> {
     if (!this.config.model) throw new AIProviderError("CONFIGURATION", "请先选择或填写模型名。");
+    const reasoning = reasoningPolicy(request);
     const response = await this.request("/chat/completions", {
       method: "POST",
       signal: request.signal,
       body: JSON.stringify({
         model: this.config.model,
         temperature: 0.1,
-        max_tokens: isLikelySentence(request.input) || request.followUp ? 1500 : 900,
+        max_tokens: isLikelySentence(request.input) || request.followUp || reasoning !== "disabled" ? 1500 : 700,
         stream: false,
         response_format: { type: "json_object" },
-        ...(this.config.provider === "deepseek" ? { thinking: { type: "disabled" } } : {}),
+        ...(this.config.provider === "deepseek" ? reasoning === "disabled"
+          ? { thinking: { type: "disabled" } }
+          : { thinking: { type: "enabled" }, reasoning_effort: "low" } : {}),
         messages: [
           { role: "system", content: systemPrompt() },
           { role: "user", content: userPrompt(request) },
@@ -416,6 +430,7 @@ export function assembleResult(input: string, targetLanguage: TargetLanguage, se
     examples: values.examples,
     usageNotes: values.usageNotes,
     katakanaOrigin: values.katakanaOrigin,
+    katakanaInfo: values.katakanaInfo,
     correction: values.correction,
     alternatives: values.alternatives,
     suggestions: values.suggestions,

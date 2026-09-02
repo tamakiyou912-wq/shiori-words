@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCircle, Info, MagnifyingGlass, SpeakerHigh } from "@phosphor-icons/react";
+import { useId, useState } from "react";
+import { toRomaji } from "wanakana";
+import { CheckCircle, MagnifyingGlass, SpeakerHigh } from "@phosphor-icons/react";
 import type { SearchSuggestion, TranslationResult } from "@/lib/types";
+import { katakanaPresentation, titleLengthClass } from "@/lib/language/katakana";
+import { useRomajiPreference } from "./use-romaji-preference";
 
 function alternativeQuery(label: string) {
   return label.split(/[·；;]/u)[0].replace(/（[^）]*）|\([^)]*\)/gu, "").trim();
@@ -43,6 +46,12 @@ export function TranslationResultView({
   const [speechStatus, setSpeechStatus] = useState("");
   const sentence = result.sentenceAnalysis;
   const entry = sentence ? undefined : result.dictionary;
+  const [showRomaji, toggleRomaji] = useRomajiPreference();
+  const romajiId = useId();
+  const surface = entry?.surface || result.translation || "…";
+  const reading = entry?.reading || sentence?.reading || (/^[ぁ-ゖァ-ヶー\s]+$/u.test(surface) ? surface : undefined);
+  const romaji = entry?.romaji || sentence?.romaji || (reading ? toRomaji(reading) : undefined);
+  const katakana = !sentence ? katakanaPresentation(result) : undefined;
   const meanings = Array.isArray(result.meanings) ? result.meanings : [];
   const examples = Array.isArray(result.examples) ? result.examples : [];
   const usageNotes = Array.isArray(result.usageNotes) ? result.usageNotes : [];
@@ -72,25 +81,37 @@ export function TranslationResultView({
     <article className="result-document" aria-live="polite" aria-busy={streaming}>
       {streaming && <div className="streaming-line"><span />正在编织自然表达…</div>}
       <header className={`entry-header${sentence && !entry ? " sentence-header" : ""}`}>
-        <div>
-          <h1 className={entry ? "entry-surface" : "translation-main"}>{entry?.surface || result.translation || "…"}</h1>
-          {entry?.reading && <p className="entry-reading">{entry.reading}{entry.romaji && <> <span>·</span> {entry.romaji}</>}</p>}
-          {entry?.englishMeaning && <p className="entry-english">{entry.englishMeaning}</p>}
-          {entry?.chineseMeaning && <p className="entry-chinese">{entry.chineseMeaning}</p>}
-          {entry?.partOfSpeech && <p className="part-of-speech">{entry.partOfSpeech}</p>}
-        </div>
-        {entry?.reading && (
-          <>
+        <div className="entry-heading-row">
+          <h1 lang={entry || sentence ? "ja" : undefined} className={`${entry ? "entry-surface" : "translation-main"} ${titleLengthClass(surface)}`}>{surface}</h1>
+          <div className="entry-tools">
+            {romaji && <button type="button" className="romaji-toggle" aria-label={showRomaji ? "隐藏罗马字" : "显示罗马字"} aria-pressed={showRomaji} aria-expanded={showRomaji} aria-controls={romajiId} title="罗马字（记住显示偏好）" onClick={toggleRomaji}>Aa</button>}
+            {reading && (
             <button
               className={`icon-button listen-button${speechStatus.startsWith("正在") ? " is-speaking" : ""}`}
               type="button"
-              aria-label={`播放「${entry.surface}」的本地日语发音`}
+              aria-label={`播放「${surface}」的本地日语发音`}
               title="使用设备内置日语语音"
-              onClick={() => speakJapaneseLocally(entry.surface, setSpeechStatus)}
+              onClick={() => speakJapaneseLocally(surface, setSpeechStatus)}
             ><SpeakerHigh aria-hidden="true" /></button>
-            <span className="sr-only" aria-live="polite">{speechStatus}</span>
-          </>
-        )}
+            )}
+          </div>
+        </div>
+        <span className="sr-only" aria-live="polite">{speechStatus}</span>
+        {entry?.reading && entry.reading !== surface && !katakana && <p className="entry-reading" lang="ja">{entry.reading}</p>}
+        {romaji && <p id={romajiId} className="entry-romaji" lang="ja-Latn" hidden={!showRomaji}>{romaji}</p>}
+        {katakana ? <>
+          {katakana.sourceExpression && <p className="entry-source" aria-label="来源或构成表达">{katakana.sourceExpression}</p>}
+          {katakana.naturalEnglish.length > 0 && <div className="entry-definition"><span>自然英语</span><p lang="en">{katakana.naturalEnglish.join(" · ")}</p></div>}
+          {entry?.chineseMeaning && <div className="entry-definition"><span>中文</span><p lang="zh-Hans">{entry.chineseMeaning}</p></div>}
+          {(katakana.label || katakana.sourceLanguage || katakana.formationNote || katakana.usageNote) && <div className="entry-origin-note">
+            {(katakana.label || katakana.sourceLanguage) && <small>{[katakana.label, katakana.sourceLanguage].filter(Boolean).join(" · ")}</small>}
+            {[...new Set([katakana.formationNote, katakana.usageNote].filter(Boolean))].map((note) => <p key={note}>{note}</p>)}
+          </div>}
+        </> : <>
+          {entry?.englishMeaning && <p className="entry-english">{entry.englishMeaning}</p>}
+          {entry?.chineseMeaning && <p className="entry-chinese">{entry.chineseMeaning}</p>}
+        </>}
+        {entry?.partOfSpeech && <p className="part-of-speech">{entry.partOfSpeech}</p>}
       </header>
 
       {!sentence && result.recognition?.resolved && recognitionSegments.length > 0 && (
@@ -123,7 +144,6 @@ export function TranslationResultView({
           <dl className="sentence-language-lines">
             <div><dt>日本語</dt><dd lang="ja">{sentence.japanese}</dd></div>
             {sentence.reading && <div><dt>かな</dt><dd lang="ja">{sentence.reading}</dd></div>}
-            {sentence.romaji && <div><dt>Romaji</dt><dd lang="ja-Latn">{sentence.romaji}</dd></div>}
             {sentence.chinese && <div><dt>中文</dt><dd lang="zh-Hans">{sentence.chinese}</dd></div>}
             {sentence.english && <div><dt>English</dt><dd lang="en">{sentence.english}</dd></div>}
           </dl>
@@ -138,7 +158,7 @@ export function TranslationResultView({
               <div className="sentence-token" key={`${token.surface}-${index}`}>
                 <strong lang="ja">{token.surface}</strong>
                 {token.reading && <span lang="ja">{token.reading}</span>}
-                {token.romaji && <span className="token-romaji" lang="ja-Latn">{token.romaji}</span>}
+                {showRomaji && token.romaji && <span className="token-romaji" lang="ja-Latn">{token.romaji}</span>}
                 {token.meaning && <small>{token.meaning}</small>}
               </div>
             ))}
@@ -155,11 +175,11 @@ export function TranslationResultView({
                 <div className="variant-label">{variant.label}</div>
                 <div className="variant-content">
                   <strong lang="ja">{variant.japanese}</strong>
-                  {(variant.reading || variant.romaji) && (
+                  {(variant.reading || (showRomaji && variant.romaji)) && (
                     <p className="variant-reading">
                       {variant.reading && <span lang="ja">{variant.reading}</span>}
-                      {variant.reading && variant.romaji && <span aria-hidden="true"> · </span>}
-                      {variant.romaji && <span lang="ja-Latn">{variant.romaji}</span>}
+                      {showRomaji && variant.reading && variant.romaji && <span aria-hidden="true"> · </span>}
+                      {showRomaji && variant.romaji && <span lang="ja-Latn">{variant.romaji}</span>}
                     </p>
                   )}
                   {(variant.chinese || variant.english) && (
@@ -216,16 +236,6 @@ export function TranslationResultView({
               </div>
             ))}
           </div>
-        </section>
-      )}
-
-      {result.katakanaOrigin && (
-        <section className="result-section origin-note">
-          <h2><Info aria-hidden="true" />片假名来源</h2>
-          {result.katakanaOrigin.source && <p><span>来源</span>{result.katakanaOrigin.source}</p>}
-          {result.katakanaOrigin.actualEnglish && <p><span>自然英语</span>{result.katakanaOrigin.actualEnglish}</p>}
-          <p>{result.katakanaOrigin.explanation}</p>
-          {result.katakanaOrigin.waseiEigo && <small>和制英语</small>}
         </section>
       )}
 

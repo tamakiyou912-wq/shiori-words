@@ -1,6 +1,6 @@
 import type { TranslationResult } from "@/lib/types";
 
-const SCHEMA_VERSION = "query-v9";
+export const CACHE_SCHEMA_VERSION = "query-v10-katakana";
 const MAX_ENTRIES = 256;
 const TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -19,7 +19,7 @@ export function isPublicCacheable(result: Pick<TranslationResult, "type" | "norm
 }
 
 export function queryCacheKey(input: string, target: string, provider: string, model: string) {
-  return [SCHEMA_VERSION, input, target, provider, model].join("\0");
+  return [CACHE_SCHEMA_VERSION, input, target, provider, model].join("\0");
 }
 
 export function getCachedQuery(key: string) {

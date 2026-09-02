@@ -34,6 +34,16 @@ export type KatakanaOrigin = {
   waseiEigo?: boolean;
 };
 
+export type KatakanaInfo = {
+  kind?: "loan" | "abbreviation" | "wasei" | "shift" | "nonEnglish";
+  sourceLanguage?: string;
+  sourceExpression?: string;
+  naturalEnglish?: string[];
+  formationNote?: string;
+  isWaseiEigo?: boolean;
+  usageNote?: string;
+};
+
 export type SearchSuggestion = {
   query: string;
   label: string;
@@ -116,6 +126,7 @@ export type TranslationResult = {
   examples?: Example[];
   usageNotes?: string[];
   katakanaOrigin?: KatakanaOrigin;
+  katakanaInfo?: KatakanaInfo;
   correction?: { input: string; normalized: string; note?: string };
   alternatives?: string[];
   suggestions?: SearchSuggestion[];

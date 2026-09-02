@@ -4,9 +4,8 @@ import type { KatakanaOrigin, TranslationResult } from "@/lib/types";
 const loanwordNotes: Record<string, { origin: KatakanaOrigin; note?: string }> = {
   コンセント: {
     origin: {
-      source: "concentric plug（历史借用后缩略）",
       actualEnglish: "electrical outlet / power outlet",
-      explanation: "现代日语表示电源插座；现代英语不能用 consent 表示插座。",
+      explanation: "来源存在历史借用变化。现代日语表示电源插座；现代英语不能用 consent 表示插座。",
       waseiEigo: true,
     },
     note: "墙上的插座是「コンセント」，插头是「プラグ」。",

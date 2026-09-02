@@ -8,6 +8,12 @@ Tagline: **words, woven clearly.**
 
 Priority order: accuracy, speed, simplicity, iPad/mobile usability, maintainability, self-deployment, and forkability.
 
+## Dictionary result refinements (September 2026)
+
+- Katakana: headword → source/construction → distinct natural English → Chinese → concise formation/usage note. Equivalent source and English appear only once; unknown provenance is omitted. No extra cards.
+- Romaji is hidden initially for all scripts. A quiet `Aa` control has a 44px touch target, keyboard support, and a local boolean-only preference; it also governs sentence readings.
+- Short, medium and long titles use generic character-count classes with container-responsive sizes. Long Japanese titles use strict Japanese line breaking; no word-specific breaks. Keep the first result screen useful rather than dominated by a title or empty space.
+
 ## Selected visual direction
 
 The selected direction is the first Product Design concept: a warm, paper-like dictionary sheet with Claude-like calm typography and a restrained warm accent. The result reads as one continuous document instead of many cards.
@@ -44,8 +50,8 @@ Use the system stack only:
 ```
 
 - Body: `15–17px`, line-height `1.65–1.75`.
-- Main dictionary surface: responsive `44–68px`, medium weight.
-- Reading and romaji: `20–28px`.
+- Main dictionary surface: short `54–76px`, medium `44–62px`, long `36–48px`, responsive to the result container; medium weight.
+- Kana reading: `20–28px`. Optional Romaji: `16px`, muted and hidden initially.
 - English headword/primary translation: `24–34px`.
 - Labels and metadata: `12–14px`, with restrained letter spacing.
 - Avoid ultra-light weights and decorative typefaces.
