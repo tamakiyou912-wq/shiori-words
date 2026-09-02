@@ -81,7 +81,6 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
   const [messages, setMessages] = useState<FollowUpMessage[]>([]);
   const [remainingUses, setRemainingUses] = useState(guest?.remainingUses);
   const [measurement, setMeasurement] = useState<(QueryTelemetry & { clientLocalMs?: number; clientTotalMs: number }) | null>(null);
-  const resultRef = useRef<HTMLDivElement>(null);
   const activeRequestRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
   const isComposingRef = useRef(false);
@@ -137,7 +136,6 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
         }
         if (streamEvent.type === "error") throw new Error(streamEvent.message);
       }, controller.signal);
-      if (requestId === requestIdRef.current) window.setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 40);
     } catch (caught) {
       if (controller.signal.aborted || requestId !== requestIdRef.current) return;
       const timedOut = caught instanceof QueryTimeoutError;
@@ -264,7 +262,7 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
       {measurement && <details className="query-measurement"><summary>本次查询测量（Owner）</summary><pre data-testid="query-measurement">{JSON.stringify(measurement)}</pre></details>}
 
       {result && (
-        <div ref={resultRef} className="result-area">
+        <div className="result-area">
           <TranslationResultView key={result.original} result={result} streaming={loading && messages.length === 0} onSelectSuggestion={(query) => void translate(undefined, query, "auto")} />
 
           {messages.length > 0 && (
