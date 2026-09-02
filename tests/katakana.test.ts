@@ -114,6 +114,7 @@ describe("bounded adaptive provider policy", () => {
     await new OpenAICompatibleProvider({provider:"deepseek",baseUrl:"https://api.example.test",apiKey:"test-fixture",model:"deepseek-v4-flash"}).complete(request);
     expect(fetch).toHaveBeenCalledOnce();
     expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).toMatchObject({thinking:{type:"enabled"},reasoning_effort:"low"});
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)).messages[0].content).toContain("not the original dictionary lookup");
   });
   it("sends concise known facts without repeating recognition and romaji",()=>{
     const prompt=userPrompt({input:"gakkou",targetLanguage:"ja",seed:{detectedLanguage:"romaji",dictionary:{surface:"学校",reading:"がっこう",romaji:"gakkou",englishMeaning:"school"}}});

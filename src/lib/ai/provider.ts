@@ -74,6 +74,10 @@ export function systemPrompt() {
   return `SHIORI: Japanese/Chinese/English learning. Return only the output object as JSON, not the task/input/known envelope. Preserve known dictionary facts. Every word needs dictionary.chineseMeaning and 1-2 short examples. Translate naturally, not phonetically. All notes in Simplified Chinese. Add 2-3 meanings only if genuinely ambiguous. Never invent origins; omit uncertain provenance. Source/construction is NOT necessarily natural English. No redundant literal translations.`;
 }
 
+function followUpSystemPrompt() {
+  return "SHIORI follow-up assistant. Answer the latest question, not the original dictionary lookup. Return JSON with translation:string containing your answer. Give requested foreign-language wording explicitly (e.g. English when asked for English), with brief Simplified Chinese explanation. Assess naturalness in the subject's own language. Preserve supplied lexical facts. Do not invent vocabulary or add unsolicited alternatives. Do not return dictionary fields or echo the request.";
+}
+
 /** Local decision only: routine lookups never spend tokens on reasoning. */
 export function reasoningPolicy(request: AIRequest): "disabled" | "low" {
   const text = request.followUp ?? request.input;
@@ -390,7 +394,7 @@ export class OpenAICompatibleProvider implements AIProvider {
           ? { thinking: { type: "disabled" } }
           : { thinking: { type: "enabled" }, reasoning_effort: "low" } : {}),
         messages: [
-          { role: "system", content: systemPrompt() },
+          { role: "system", content: request.followUp && request.context ? followUpSystemPrompt() : systemPrompt() },
           { role: "user", content: userPrompt(request) },
         ],
       }),
