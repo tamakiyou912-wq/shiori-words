@@ -60,7 +60,7 @@
 3. クレーム的模型 naturalEnglish 曾为 claim；已有审核注释现在优先于新生成字段，保留 complaint/customer complaint。没有新增针对测试词的解析字典。
 4. アルバイト曾返回泛化的 work/job，マンション曾把 mansion 当自然英语。Prompt 明确要求现代**日语含义**对应的英语，最终复测分别为 part-time job、apartment building/condominium。
 5. スマホ曾缺来源与例句；Provider 把可选字段嵌入 dictionary 或与 output wrapper 混用时，现在逐字段恢复，不因根字段已存在就丢弃其他字段。
-6. 一次追问返回 answer/explanation 数组，被旧恢复路径当成整段 JSON。已添加数组对象/answer 恢复、明确追问输出形状，且带入片假名上下文；不重新调用 AI 修 JSON。
+6. 一次追问返回 answer/explanation 数组，被旧恢复路径当成整段 JSON。已添加数组对象/answer 恢复、明确追问输出形状，且带入片假名上下文；不重新调用 AI 修 JSON。解释性追问单独使用正文排版，不再触发查词字段缺失警告；中文解释与目标语言例句分开要求。
 7. sumaho 的来源字段曾误填日语展开式スマートフォン。此类非外语来源值会被省略，保留自然英语和说明；未冒充来源字段全部可靠。
 8. 词源分类/措辞仍由模型补充，可能有波动；有疑问应核对权威词典。保守省略比确定地展示错误信息更安全。
 9. 罗马字仍沿用现有转写习惯（如 gakkou、konnichiha、mobairubatterii），未改核心转写为带长音符、按发音分词的 Hepburn 系统。

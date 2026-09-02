@@ -42,8 +42,10 @@ describe("katakana learning presentation", () => {
     expect(parsed.textFallback).toBe(false);
     expect(parsed.result.translation).toBe("这是自然的日语说法。");
     expect(parsed.result.usageNotes).toEqual(["英语中应使用另一种表达。"]);
-    const html=renderToStaticMarkup(createElement(TranslationResultView,{result:{original:"モバイルバッテリー",...parsed.result}}));
+    const html=renderToStaticMarkup(createElement(TranslationResultView,{isFollowUp:true,result:{original:"mobairubatteri",detectedLanguage:"romaji",...parsed.result}}));
     expect(html).not.toContain("中文释义未完整返回");
+    expect(html).not.toContain("词义尚未完整返回");
+    expect(html).toContain('class="followup-answer"');
   });
   it.each([null, false, [], 42, "bad"])("ignores an invalid optional object %j", (value) => {
     expect(normalizeKatakanaInfo(value)).toBeUndefined();

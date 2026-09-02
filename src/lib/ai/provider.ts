@@ -126,8 +126,8 @@ export function userPrompt(request: AIRequest) {
       task: "follow-up",
       question: request.followUp,
       target,
-      instruction: "Answer the follow-up itself and return the revised wording or explanation. If the user asks for a direct message, write the message addressed directly to that person; do not keep third-person wording such as 'please tell them'.",
-      output: { translation: "answer and explanation in the target language; no request envelope" },
+      instruction: "Explain in Simplified Chinese; quote examples/revised wording in the target language. Answer the question itself. Preserve the supplied katakana source/modern-English distinction; do not reclassify it. For a requested direct message, address the recipient directly, not 'please tell them'.",
+      output: { translation: "Chinese answer/explanation, with target-language wording when useful; no request envelope" },
       context,
     });
   }

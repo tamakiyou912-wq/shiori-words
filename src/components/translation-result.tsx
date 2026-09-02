@@ -35,10 +35,12 @@ function speakJapaneseLocally(text: string, onStatus: (message: string) => void)
 export function TranslationResultView({
   result,
   streaming = false,
+  isFollowUp = false,
   onSelectSuggestion,
 }: {
   result: Partial<TranslationResult>;
   streaming?: boolean;
+  isFollowUp?: boolean;
   onSelectSuggestion?: (query: string) => void;
 }) {
   const [showKana, setShowKana] = useState(false);
@@ -72,6 +74,7 @@ export function TranslationResultView({
   );
   const incompleteRomajiLookup = Boolean(
     !streaming
+    && !isFollowUp
     && result.detectedLanguage === "romaji"
     && result.translation
     && !entry,
@@ -82,7 +85,9 @@ export function TranslationResultView({
       {streaming && <div className="streaming-line"><span />正在编织自然表达…</div>}
       <header className={`entry-header${sentence && !entry ? " sentence-header" : ""}`}>
         <div className="entry-heading-row">
-          <h1 lang={entry || sentence ? "ja" : undefined} className={`${entry ? "entry-surface" : "translation-main"} ${titleLengthClass(surface)}`}>{surface}</h1>
+          {isFollowUp && !entry && !sentence
+            ? <p className="followup-answer">{surface}</p>
+            : <h1 lang={entry || sentence ? "ja" : undefined} className={`${entry ? "entry-surface" : "translation-main"} ${titleLengthClass(surface)}`}>{surface}</h1>}
           <div className="entry-tools">
             {romaji && <button type="button" className="romaji-toggle" aria-label={showRomaji ? "隐藏罗马字" : "显示罗马字"} aria-pressed={showRomaji} aria-expanded={showRomaji} aria-controls={romajiId} title="罗马字（记住显示偏好）" onClick={toggleRomaji}>Aa</button>}
             {reading && (

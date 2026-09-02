@@ -270,7 +270,7 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
               {messages.map((message, index) => (
                 <div className="followup-turn" key={`${message.question}-${index}`}>
                   <p className="followup-question">{message.question}</p>
-                  <TranslationResultView result={message.answer} streaming={loading && index === messages.length - 1} onSelectSuggestion={(query) => void translate(undefined, query, "auto")} />
+                  <TranslationResultView result={message.answer} isFollowUp streaming={loading && index === messages.length - 1} onSelectSuggestion={(query) => void translate(undefined, query, "auto")} />
                 </div>
               ))}
             </div>
