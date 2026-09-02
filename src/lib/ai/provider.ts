@@ -77,7 +77,7 @@ export function systemPrompt() {
 /** Local decision only: routine lookups never spend tokens on reasoning. */
 export function reasoningPolicy(request: AIRequest): "disabled" | "low" {
   const text = request.followUp ?? request.input;
-  const nuancedFollowUp = Boolean(request.followUp && request.context && /为什么|为何|区别|差别|语法|不自然|ニュアンス|違い|なぜ|why|difference|nuance/iu.test(text));
+  const nuancedFollowUp = Boolean(request.followUp && request.context && /为什么|为何|区别|差别|语法|不自然|自然吗|地道|ニュアンス|違い|なぜ|自然ですか|why|difference|nuance|natural/iu.test(text));
   return nuancedFollowUp || text.length > 240 ? "low" : "disabled";
 }
 
@@ -126,7 +126,7 @@ export function userPrompt(request: AIRequest) {
       task: "follow-up",
       question: request.followUp,
       target,
-      instruction: "Explain in Simplified Chinese; quote examples/revised wording in the target language. Answer the question itself. Preserve the supplied katakana source/modern-English distinction; do not reclassify it. For a requested direct message, address the recipient directly, not 'please tell them'.",
+      instruction: "Explain briefly in Simplified Chinese; quote examples/revisions in the target language. Answer only what was asked. If already natural, confirm without inventing alternatives. Never coin Japanese words or pass Chinese vocabulary off as Japanese. Preserve the supplied katakana source/modern-English distinction. For direct messages, address the recipient, not 'please tell them'.",
       output: { translation: "Chinese answer/explanation, with target-language wording when useful; no request envelope" },
       context,
     });
