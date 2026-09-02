@@ -17,6 +17,13 @@ describe("katakana learning presentation", () => {
     expect(assembled.katakanaInfo?.sourceExpression).toBe("mobile battery");
     expect(katakanaPresentation(assembled)?.naturalEnglish).toEqual(["power bank", "portable charger"]);
   });
+  it.each(["output","result","data"])("recovers a valid result wrapped in %s without a second request",(wrapper)=>{
+    const content=JSON.stringify({task:"word",input:"mobairubatteri",[wrapper]:{dictionary:{surface:"モバイルバッテリー",chineseMeaning:"充电宝"},katakanaInfo:{sourceExpression:"mobile battery",naturalEnglish:["power bank"]}}});
+    const parsed=parseProviderContent(content);
+    expect(parsed.textFallback).toBe(false);
+    expect(parsed.result.dictionary?.chineseMeaning).toBe("充电宝");
+    expect(parsed.result.katakanaInfo?.sourceExpression).toBe("mobile battery");
+  });
   it("deduplicates equivalent source and English without losing distinct synonyms", () => {
     const view = katakanaPresentation({katakanaInfo:{sourceExpression:"Internet",naturalEnglish:["internet", "Internet.","the Net"]}});
     expect(view?.naturalEnglish).toEqual(["the Net"]);

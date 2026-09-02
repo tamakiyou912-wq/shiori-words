@@ -71,7 +71,7 @@ function providerUrl(baseUrl: string, path: string) {
 
 /** Stable prefix: keep dynamic data out so provider prompt caching can match it. */
 export function systemPrompt() {
-  return `SHIORI: Japanese/Chinese/English learning. Return JSON only using the output structure. Preserve known dictionary facts. Every word needs dictionary.chineseMeaning and 1-2 short examples. Translate naturally, not phonetically. All notes in Simplified Chinese. Add 2-3 meanings only if genuinely ambiguous. Never invent origins; omit uncertain provenance. Source/construction is NOT necessarily natural English. No redundant literal translations.`;
+  return `SHIORI: Japanese/Chinese/English learning. Return only the output object as JSON, not the task/input/known envelope. Preserve known dictionary facts. Every word needs dictionary.chineseMeaning and 1-2 short examples. Translate naturally, not phonetically. All notes in Simplified Chinese. Add 2-3 meanings only if genuinely ambiguous. Never invent origins; omit uncertain provenance. Source/construction is NOT necessarily natural English. No redundant literal translations.`;
 }
 
 /** Local decision only: routine lookups never spend tokens on reasoning. */
@@ -145,7 +145,7 @@ export function userPrompt(request: AIRequest) {
     output: sentence
       ? { translation: "target language", sentenceAnalysis: { japanese: "", reading: "", romaji: "", chinese: "", english: "", tokens: [{surface:"",reading:"",romaji:"",meaning:""}], variants: [{label:"",japanese:"",reading:"",chinese:"",english:""}] } }
       : { dictionary: {surface:"Japanese headword",reading:"kana",chineseMeaning:"Chinese meaning (required)",englishMeaning:katakana ? undefined : "natural English"}, examples:[{japanese:"Japanese sentence",reading:"kana",chinese:"natural Chinese translation"}], ...(katakana ? {katakanaInfo:{sourceExpression:"foreign construction, not romaji",naturalEnglish:["modern English"],kind:"loan|abbreviation|wasei|shift|nonEnglish",usageNote:"short Chinese note if needed"}} : {}) },
-    katakana: katakana ? "loan=unchanged borrowing; abbreviation=Japanese shortening; wasei=Japanese-coined English combination; shift=changed meaning. Expand abbreviations. If construction differs from natural English, warn in Chinese against using the literal form in English. sourceLanguage optional, only if certain." : undefined,
+    katakana: katakana ? "abbreviation=Japanese shortening; shift=changed meaning. An English combination not normally used for this meaning in English MUST be wasei, NOT loan. loan=unchanged borrowing. Expand abbreviations. Explain differences in one Chinese sentence. sourceLanguage optional, only if certain." : undefined,
   });
 }
 
@@ -250,8 +250,9 @@ export function normalizeProviderSection(section: ProviderSection): ProviderSect
   return null;
 }
 
-function extractSections(value: unknown) {
+function extractSections(value: unknown, depth = 0): ProviderSection[] {
   const sections: ProviderSection[] = [];
+  if (depth > 4) return sections;
   if (Array.isArray(value)) {
     for (const candidate of value) {
       const parsed = providerSectionSchema.safeParse(candidate);
@@ -261,11 +262,19 @@ function extractSections(value: unknown) {
   }
   const object = objectValue(value);
   if (!object) return sections;
-  if (Array.isArray(object.sections)) return extractSections(object.sections);
+  if (Array.isArray(object.sections)) return extractSections(object.sections, depth + 1);
   for (const section of sectionNames) {
     if (object[section] !== undefined) sections.push({ section, data: object[section] });
   }
   if (!object.translation && nonEmptyString(object.primary)) sections.push({ section: "translation", data: object.primary });
+  if (sections.length === 0) {
+    for (const wrapper of ["output", "result", "data"]) {
+      if (objectValue(object[wrapper])) {
+        const nested = extractSections(object[wrapper], depth + 1);
+        if (nested.length) return nested;
+      }
+    }
+  }
   return sections;
 }
 
