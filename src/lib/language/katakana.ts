@@ -24,6 +24,15 @@ export function normalizeKatakanaInfo(value: unknown): KatakanaInfo | undefined 
     formationNote: text(raw.formationNote), usageNote: text(raw.usageNote),
     isWaseiEigo: typeof raw.isWaseiEigo === "boolean" ? raw.isWaseiEigo : undefined,
   };
+  // "Unchanged borrowing" cannot simultaneously claim a multi-word English
+  // construction and only different modern equivalents. Leave taxonomy open
+  // rather than inventing a wasei/semantic-shift verdict locally.
+  if (info.kind === "loan" && info.sourceExpression?.trim().includes(" ") && naturalEnglish.length
+    && !naturalEnglish.some((item) => expressionKey(item) === expressionKey(info.sourceExpression!))) {
+    info.kind = undefined;
+    info.formationNote = undefined;
+    info.usageNote = [info.usageNote, "来源或构成表达不一定是日常英语说法，请参考上面的自然英语。"].filter(Boolean).join(" ");
+  }
   return Object.values(info).some((item) => item !== undefined) ? info : undefined;
 }
 
@@ -42,7 +51,8 @@ export function katakanaPresentation(result: Partial<TranslationResult>) {
   const natural = info?.naturalEnglish?.length ? info.naturalEnglish : result.dictionary?.englishMeaning?.split(/\s*[\/;；·]\s*/u) ?? [];
   return {
     ...info,
-    naturalEnglish: natural.filter((item) => expressionKey(item) !== expressionKey(info?.sourceExpression ?? "")),
+    naturalEnglish: natural.filter((item, index) => expressionKey(item) !== expressionKey(info?.sourceExpression ?? "")
+      && natural.findIndex((other) => expressionKey(other) === expressionKey(item)) === index),
     label: info?.kind ? katakanaKinds[info.kind] : info?.isWaseiEigo ? "和制英语" : undefined,
   };
 }

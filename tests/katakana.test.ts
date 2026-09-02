@@ -30,12 +30,25 @@ describe("katakana learning presentation", () => {
     expect(view?.naturalEnglish).toEqual(["the Net"]);
     expect(katakanaPresentation({katakanaInfo:{sourceExpression:"television（缩写）",naturalEnglish:["television","TV"]}})?.naturalEnglish).toEqual(["TV"]);
   });
+  it("recovers nested enrichment alongside valid root fields",()=>{
+    const parsed=parseProviderContent(JSON.stringify({translation:"スマホ",dictionary:{surface:"スマホ",chineseMeaning:"智能手机",katakanaInfo:{sourceExpression:"smartphone",kind:"abbreviation"},examples:[{japanese:"スマホを買った。",chinese:"买了智能手机。"}]},output:{translation:"must not replace root",usageNotes:["日语缩略词"]}}));
+    expect(parsed.result.translation).toBe("スマホ");
+    expect(parsed.result.katakanaInfo?.kind).toBe("abbreviation");
+    expect(parsed.result.examples).toHaveLength(1);
+    expect(parsed.result.usageNotes).toEqual(["日语缩略词"]);
+  });
   it.each([null, false, [], 42, "bad"])("ignores an invalid optional object %j", (value) => {
     expect(normalizeKatakanaInfo(value)).toBeUndefined();
     expect(parseProviderContent(JSON.stringify({translation:"ホテル",katakanaInfo:value})).result.translation).toBe("ホテル");
   });
   it("keeps valid siblings when optional fields have the wrong type", () => {
     expect(normalizeKatakanaInfo({sourceExpression:"hotel",naturalEnglish:[null,5,"hotel"],sourceLanguage:[],kind:"unknown",isWaseiEigo:"false"})).toMatchObject({sourceExpression:"hotel",naturalEnglish:["hotel"],sourceLanguage:undefined,isWaseiEigo:undefined,kind:undefined});
+  });
+  it("does not present a contradictory construction as an unchanged English loan",()=>{
+    const info=normalizeKatakanaInfo({sourceExpression:"paper driver",naturalEnglish:["licensed but inexperienced driver"],kind:"loan"});
+    expect(info?.kind).toBeUndefined();
+    expect(info?.usageNote).toContain("不一定是日常英语");
+    expect(katakanaPresentation({dictionary:{surface:"スマホ",englishMeaning:"smartphone / smart phone"}})?.naturalEnglish).toEqual(["smartphone"]);
   });
   it("supports non-English provenance without assigning English by default", () => {
     expect(katakanaPresentation({katakanaInfo:{sourceLanguage:"German",sourceExpression:"Arbeit",naturalEnglish:["part-time job"],kind:"nonEnglish"}})?.sourceLanguage).toBe("German");

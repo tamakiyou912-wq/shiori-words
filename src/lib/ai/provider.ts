@@ -267,11 +267,12 @@ function extractSections(value: unknown, depth = 0): ProviderSection[] {
     if (object[section] !== undefined) sections.push({ section, data: object[section] });
   }
   if (!object.translation && nonEmptyString(object.primary)) sections.push({ section: "translation", data: object.primary });
-  if (sections.length === 0) {
-    for (const wrapper of ["output", "result", "data"]) {
-      if (objectValue(object[wrapper])) {
-        const nested = extractSections(object[wrapper], depth + 1);
-        if (nested.length) return nested;
+  // Some providers mix root fields with a wrapper, or nest enrichment under
+  // dictionary. Recover missing siblings without replacing valid root fields.
+  for (const wrapper of ["output", "result", "data", "dictionary"]) {
+    if (objectValue(object[wrapper])) {
+      for (const nested of extractSections(object[wrapper], depth + 1)) {
+        if (!sections.some((section) => section.section === nested.section)) sections.push(nested);
       }
     }
   }
