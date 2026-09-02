@@ -113,6 +113,7 @@ export function userPrompt(request: AIRequest) {
       original: request.context.original,
       primary: request.context.primary ?? request.context.translation,
       dictionary: request.context.dictionary,
+      katakana: request.context.katakanaInfo ?? request.context.katakanaOrigin,
       meanings: request.context.meanings?.slice(0, 4),
       notes: request.context.usageNotes?.slice(0, 3),
       sentence: request.context.sentenceAnalysis ? {
@@ -126,6 +127,7 @@ export function userPrompt(request: AIRequest) {
       question: request.followUp,
       target,
       instruction: "Answer the follow-up itself and return the revised wording or explanation. If the user asks for a direct message, write the message addressed directly to that person; do not keep third-person wording such as 'please tell them'.",
+      output: { translation: "answer and explanation in the target language; no request envelope" },
       context,
     });
   }
@@ -254,9 +256,10 @@ function extractSections(value: unknown, depth = 0): ProviderSection[] {
   const sections: ProviderSection[] = [];
   if (depth > 4) return sections;
   if (Array.isArray(value)) {
-    for (const candidate of value) {
+    for (const candidate of value.slice(0, 32)) {
       const parsed = providerSectionSchema.safeParse(candidate);
       if (parsed.success) sections.push(parsed.data);
+      else sections.push(...extractSections(candidate, depth + 1));
     }
     return sections;
   }
@@ -267,6 +270,10 @@ function extractSections(value: unknown, depth = 0): ProviderSection[] {
     if (object[section] !== undefined) sections.push({ section, data: object[section] });
   }
   if (!object.translation && nonEmptyString(object.primary)) sections.push({ section: "translation", data: object.primary });
+  if (!sections.some((section) => section.section === "translation") && nonEmptyString(object.answer)) {
+    sections.push({ section: "translation", data: object.answer });
+  }
+  if (!object.usageNotes && nonEmptyString(object.explanation)) sections.push({ section: "usageNotes", data: [object.explanation] });
   // Some providers mix root fields with a wrapper, or nest enrichment under
   // dictionary. Recover missing siblings without replacing valid root fields.
   for (const wrapper of ["output", "result", "data", "dictionary"]) {

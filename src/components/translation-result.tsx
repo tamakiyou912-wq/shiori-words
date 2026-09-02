@@ -51,7 +51,7 @@ export function TranslationResultView({
   const surface = entry && isKatakanaWord(result.original ?? "") ? result.original! : entry?.surface || result.translation || "…";
   const reading = entry?.reading || sentence?.reading || (/^[ぁ-ゖァ-ヶー\s]+$/u.test(surface) ? surface : undefined);
   const romaji = entry?.romaji || sentence?.romaji || (reading ? toRomaji(reading) : undefined);
-  const katakana = !sentence ? katakanaPresentation(result) : undefined;
+  const katakana = !sentence && (entry || result.katakanaInfo || result.katakanaOrigin) ? katakanaPresentation(result) : undefined;
   const meanings = Array.isArray(result.meanings) ? result.meanings : [];
   const examples = Array.isArray(result.examples) ? result.examples : [];
   const usageNotes = Array.isArray(result.usageNotes) ? result.usageNotes : [];

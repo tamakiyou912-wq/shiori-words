@@ -24,6 +24,9 @@ export function normalizeKatakanaInfo(value: unknown): KatakanaInfo | undefined 
     formationNote: text(raw.formationNote), usageNote: text(raw.usageNote),
     isWaseiEigo: typeof raw.isWaseiEigo === "boolean" ? raw.isWaseiEigo : undefined,
   };
+  // A Japanese expansion belongs in formationNote, not in foreign provenance.
+  // Keep the English meaning even when the provider fills this field wrongly.
+  if (info.sourceExpression && /^[ぁ-ゖァ-ヶー・\s]+$/u.test(info.sourceExpression)) info.sourceExpression = undefined;
   // "Unchanged borrowing" cannot simultaneously claim a multi-word English
   // construction and only different modern equivalents. Leave taxonomy open
   // rather than inventing a wasei/semantic-shift verdict locally.

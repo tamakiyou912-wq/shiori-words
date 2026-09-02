@@ -37,6 +37,14 @@ describe("katakana learning presentation", () => {
     expect(parsed.result.examples).toHaveLength(1);
     expect(parsed.result.usageNotes).toEqual(["日语缩略词"]);
   });
+  it("recovers an array-wrapped follow-up answer instead of displaying its JSON envelope",()=>{
+    const parsed=parseProviderContent(JSON.stringify([{task:"follow-up",question:"自然吗",answer:"这是自然的日语说法。",explanation:"英语中应使用另一种表达。"}]));
+    expect(parsed.textFallback).toBe(false);
+    expect(parsed.result.translation).toBe("这是自然的日语说法。");
+    expect(parsed.result.usageNotes).toEqual(["英语中应使用另一种表达。"]);
+    const html=renderToStaticMarkup(createElement(TranslationResultView,{result:{original:"モバイルバッテリー",...parsed.result}}));
+    expect(html).not.toContain("中文释义未完整返回");
+  });
   it.each([null, false, [], 42, "bad"])("ignores an invalid optional object %j", (value) => {
     expect(normalizeKatakanaInfo(value)).toBeUndefined();
     expect(parseProviderContent(JSON.stringify({translation:"ホテル",katakanaInfo:value})).result.translation).toBe("ホテル");
@@ -49,6 +57,7 @@ describe("katakana learning presentation", () => {
     expect(info?.kind).toBeUndefined();
     expect(info?.usageNote).toContain("不一定是日常英语");
     expect(katakanaPresentation({dictionary:{surface:"スマホ",englishMeaning:"smartphone / smart phone"}})?.naturalEnglish).toEqual(["smartphone"]);
+    expect(normalizeKatakanaInfo({sourceExpression:"テレビジョン",naturalEnglish:["television"],kind:"abbreviation"})).toMatchObject({sourceExpression:undefined,naturalEnglish:["television"]});
   });
   it("supports non-English provenance without assigning English by default", () => {
     expect(katakanaPresentation({katakanaInfo:{sourceLanguage:"German",sourceExpression:"Arbeit",naturalEnglish:["part-time job"],kind:"nonEnglish"}})?.sourceLanguage).toBe("German");
