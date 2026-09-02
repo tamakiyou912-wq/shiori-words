@@ -80,6 +80,19 @@ describe("katakana learning presentation", () => {
     expect(html).toContain('aria-label="显示罗马字"');
     expect(html).toContain('aria-pressed="false"');
     expect(html).toMatch(/class="entry-romaji"[^>]*hidden=""/);
+    expect(html).not.toContain("本地日语发音");
+    expect(html).not.toContain("listen-button");
+  });
+  it.each(["コンピュータ", "コンピューター", "モバイルバッテリー", "アプリケーション", "コンピューターサイエンス"])("fits %s against its own column without audio controls", (surface) => {
+    const html = renderToStaticMarkup(createElement(TranslationResultView, {result:{dictionary:{surface,reading:surface}}}));
+    expect(html).toContain('class="entry-title"');
+    expect(html).toContain("title-katakana");
+    expect(html).toContain(`--entry-characters:${[...surface].length * 1.02}`);
+    expect(html.match(/<button /g)).toHaveLength(1);
+  });
+  it("also sizes provisional katakana results before dictionary enrichment", () => {
+    const html = renderToStaticMarkup(createElement(TranslationResultView, {streaming:true,result:{translation:"モバイルバッテリー"}}));
+    expect(html).toContain("title-katakana");
   });
   it("shows source, distinct English and Chinese in this order", () => {
     const html=renderToStaticMarkup(createElement(TranslationResultView,{result:{dictionary:{surface:"モバイルバッテリー",chineseMeaning:"充电宝"},katakanaInfo:{sourceExpression:"mobile battery",naturalEnglish:["power bank"]}}}));

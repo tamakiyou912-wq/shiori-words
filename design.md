@@ -12,7 +12,7 @@ Priority order: accuracy, speed, simplicity, iPad/mobile usability, maintainabil
 
 - Katakana: headword → source/construction → distinct natural English → Chinese → concise formation/usage note. Equivalent source and English appear only once; unknown provenance is omitted. No extra cards.
 - Romaji is hidden initially for all scripts. A quiet `Aa` control has a 44px touch target, keyboard support, and a local boolean-only preference; it also governs sentence readings.
-- Short, medium and long titles use generic character-count classes with container-responsive sizes. Long Japanese titles use strict Japanese line breaking; no word-specific breaks. Keep the first result screen useful rather than dominated by a title or empty space.
+- Katakana titles use their own available column width (excluding Aa), divided by a conservative glyph count, capped at 40px with a readable 20px floor. Unusually long compounds may wrap naturally. Other titles retain generic character-count sizes. Use strict Japanese line breaking; no word-specific breaks or audio controls.
 
 ## Selected visual direction
 
@@ -50,7 +50,7 @@ Use the system stack only:
 ```
 
 - Body: `15–17px`, line-height `1.65–1.75`.
-- Main dictionary surface: short `54–76px`, medium `44–62px`, long `36–48px`, responsive to the result container; medium weight.
+- Main dictionary surface: short `54–76px`, medium `44–62px`, long `36–48px`; katakana uses the smaller width-fitting `20–40px` rule above. Medium weight.
 - Kana reading: `20–28px`. Optional Romaji: `16px`, muted and hidden initially.
 - English headword/primary translation: `24–34px`.
 - Labels and metadata: `12–14px`, with restrained letter spacing.
@@ -93,7 +93,7 @@ Use no gradients. Do not introduce additional decorative colors.
 - Ruby/furigana is opt-in for sentences; dictionary headwords show one compact reading line by default.
 - Corrected or ambiguous romaji results offer one quiet “继续联想相似发音” action. It reveals a short set of clickable candidates; selecting one replaces the input and immediately runs a new translation.
 - While a single romaji term is being typed, show a compact input-recognition row with one-click hiragana, katakana, and dictionary/kanji interpretation choices. Automatic interpretation stays the default.
-- Word pronunciation uses the browser/operating-system Japanese speech voice (`ja-JP`) locally. The control must announce playback state and must never call the AI Provider.
+- No pronunciation playback control. Keep the compact Romaji toggle as the only headword utility.
 - Sentence results are learning views, not a single translated line. Always show a compact Chinese/Japanese/English comparison, full-sentence kana and romaji, token-level pronunciation/meaning, and 3–4 useful register or context variants. Use continuous rows and rules rather than separate cards.
 - Motion is limited to short opacity/position transitions (`120–180ms`) when it clarifies state. Respect `prefers-reduced-motion`.
 

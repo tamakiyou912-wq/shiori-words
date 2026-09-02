@@ -417,17 +417,27 @@ a { color: inherit; text-decoration: none; }
 
 .entry-header { position: relative; container-type: inline-size; padding: 6px 16px 28px; }
 .entry-header.sentence-header { padding-bottom: 28px; }
-.entry-heading-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 12px; }
-.entry-heading-row h1 { flex: 1 1 200px; min-width: 0; }
+.entry-heading-row { display: flex; align-items: flex-start; gap: 12px; }
+.entry-title { flex: 1 1 0; min-width: 0; container-type: inline-size; }
 .entry-tools { display: flex; flex: 0 0 auto; gap: 0; margin-left: auto; }
 .entry-surface, .translation-main { margin: 0; font-size: clamp(52px, 9vw, 82px); line-height: 1.2; font-weight: 560; letter-spacing: -.035em; }
 .entry-surface { line-break: strict; word-break: normal; overflow-wrap: anywhere; text-wrap: pretty; }
 .entry-surface.title-short { font-size: clamp(54px, 14cqi, 76px); }
 .entry-surface.title-medium { font-size: clamp(44px, 11cqi, 62px); }
 .entry-surface.title-long { font-size: clamp(36px, 8cqi, 48px); line-height: 1.35; }
-.entry-heading-row:has(.title-long) { display: block; }
-.entry-heading-row:has(.title-long) .entry-tools { float: right; margin-top: 4px; }
 .translation-main { max-width: 760px; font-size: clamp(34px, 6vw, 54px); line-height: 1.38; }
+.entry-title .title-katakana {
+  /* The container excludes the toggle. Keep a readable floor for unusually
+     long compounds; those may wrap naturally rather than becoming tiny. */
+  font-size: 26px;
+  font-size: clamp(20px, calc((100cqi - 2px) / var(--entry-characters)), 40px);
+  line-height: 1.4;
+  letter-spacing: 0;
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  text-wrap: wrap;
+}
 .followup-answer { margin: 0; flex: 1 1 100%; white-space: pre-wrap; font-size: 18px; line-height: 1.85; overflow-wrap: anywhere; }
 .entry-reading { margin: 12px 0 0; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-size: clamp(21px, 3.3vw, 28px); letter-spacing: .02em; }
 .entry-reading span { color: var(--faint); }
@@ -445,9 +455,6 @@ a { color: inherit; text-decoration: none; }
 .entry-chinese { margin: 16px 0 0; font-size: clamp(17px, 2.6vw, 21px); }
 .part-of-speech { margin: 13px 0 0; color: var(--accent); font-size: 14px; font-weight: 650; }
 .icon-button { border: 0; background: transparent; cursor: pointer; }
-.listen-button { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
-.listen-button:hover { background: var(--accent-soft); color: var(--accent); }
-.listen-button.is-speaking { background: var(--accent-soft); color: var(--accent); }
 
 .input-recognition {
   margin: -14px 16px 34px;

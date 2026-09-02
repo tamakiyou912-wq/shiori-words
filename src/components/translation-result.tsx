@@ -1,35 +1,14 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, type CSSProperties } from "react";
 import { toRomaji } from "wanakana";
-import { CheckCircle, MagnifyingGlass, SpeakerHigh } from "@phosphor-icons/react";
+import { CheckCircle, MagnifyingGlass } from "@phosphor-icons/react";
 import type { SearchSuggestion, TranslationResult } from "@/lib/types";
 import { isKatakanaWord, katakanaPresentation, titleLengthClass } from "@/lib/language/katakana";
 import { useRomajiPreference } from "./use-romaji-preference";
 
 function alternativeQuery(label: string) {
   return label.split(/[·；;]/u)[0].replace(/（[^）]*）|\([^)]*\)/gu, "").trim();
-}
-
-function speakJapaneseLocally(text: string, onStatus: (message: string) => void) {
-  if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
-    onStatus("当前浏览器不支持本地语音。");
-    return;
-  }
-  const synth = window.speechSynthesis;
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "ja-JP";
-  utterance.rate = 0.84;
-  utterance.pitch = 1;
-  utterance.volume = 1;
-  const japaneseVoice = synth.getVoices().find((voice) => /^ja(?:-|_)/iu.test(voice.lang));
-  if (japaneseVoice) utterance.voice = japaneseVoice;
-  utterance.onstart = () => onStatus("正在播放本地日语发音…");
-  utterance.onend = () => onStatus("已播放本地日语发音。");
-  utterance.onerror = () => onStatus("本地语音播放失败，请检查浏览器声音权限。");
-  synth.cancel();
-  synth.resume();
-  window.setTimeout(() => synth.speak(utterance), 0);
 }
 
 export function TranslationResultView({
@@ -45,12 +24,17 @@ export function TranslationResultView({
 }) {
   const [showKana, setShowKana] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [speechStatus, setSpeechStatus] = useState("");
   const sentence = result.sentenceAnalysis;
   const entry = sentence ? undefined : result.dictionary;
   const [showRomaji, toggleRomaji] = useRomajiPreference();
   const romajiId = useId();
   const surface = entry && isKatakanaWord(result.original ?? "") ? result.original! : entry?.surface || result.translation || "…";
+  const isKatakanaTitle = isKatakanaWord(surface);
+  // CSS sizes against the title's own column, after reserving space for Aa.
+  // Count full-width glyphs conservatively; no per-word rules or resize effects.
+  const titleStyle = isKatakanaTitle
+    ? { "--entry-characters": Math.max(1, [...surface.normalize("NFC")].length) * 1.02 } as CSSProperties
+    : undefined;
   const reading = entry?.reading || sentence?.reading || (/^[ぁ-ゖァ-ヶー\s]+$/u.test(surface) ? surface : undefined);
   const romaji = entry?.romaji || sentence?.romaji || (reading ? toRomaji(reading) : undefined);
   const katakana = !sentence && (entry || result.katakanaInfo || result.katakanaOrigin) ? katakanaPresentation(result) : undefined;
@@ -85,23 +69,15 @@ export function TranslationResultView({
       {streaming && <div className="streaming-line"><span />正在编织自然表达…</div>}
       <header className={`entry-header${sentence && !entry ? " sentence-header" : ""}`}>
         <div className="entry-heading-row">
-          {isFollowUp && !entry && !sentence
-            ? <p className="followup-answer">{surface}</p>
-            : <h1 lang={entry || sentence ? "ja" : undefined} className={`${entry ? "entry-surface" : "translation-main"} ${titleLengthClass(surface)}`}>{surface}</h1>}
-          <div className="entry-tools">
-            {romaji && <button type="button" className="romaji-toggle" aria-label={showRomaji ? "隐藏罗马字" : "显示罗马字"} aria-pressed={showRomaji} aria-expanded={showRomaji} aria-controls={romajiId} title="罗马字（记住显示偏好）" onClick={toggleRomaji}>Aa</button>}
-            {reading && (
-            <button
-              className={`icon-button listen-button${speechStatus.startsWith("正在") ? " is-speaking" : ""}`}
-              type="button"
-              aria-label={`播放「${surface}」的本地日语发音`}
-              title="使用设备内置日语语音"
-              onClick={() => speakJapaneseLocally(surface, setSpeechStatus)}
-            ><SpeakerHigh aria-hidden="true" /></button>
-            )}
+          <div className="entry-title">
+            {isFollowUp && !entry && !sentence
+              ? <p className="followup-answer">{surface}</p>
+              : <h1 lang={entry || sentence || isKatakanaTitle ? "ja" : undefined} style={titleStyle} className={`${entry ? "entry-surface" : "translation-main"} ${titleLengthClass(surface)}${isKatakanaTitle ? " title-katakana" : ""}`}>{surface}</h1>}
           </div>
+          {romaji && <div className="entry-tools">
+            <button type="button" className="romaji-toggle" aria-label={showRomaji ? "隐藏罗马字" : "显示罗马字"} aria-pressed={showRomaji} aria-expanded={showRomaji} aria-controls={romajiId} title="罗马字（记住显示偏好）" onClick={toggleRomaji}>Aa</button>
+          </div>}
         </div>
-        <span className="sr-only" aria-live="polite">{speechStatus}</span>
         {entry?.reading && entry.reading !== surface && !katakana && <p className="entry-reading" lang="ja">{entry.reading}</p>}
         {romaji && <p id={romajiId} className="entry-romaji" lang="ja-Latn" hidden={!showRomaji}>{romaji}</p>}
         {katakana ? <>
