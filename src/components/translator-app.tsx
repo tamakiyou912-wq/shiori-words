@@ -5,7 +5,7 @@ import { ArrowRight, ChatCircleDots, PaperPlaneRight, X } from "@phosphor-icons/
 import { AccessPanel } from "./access-panel";
 import { TranslationResultView } from "./translation-result";
 import { romajiScriptChoices } from "@/lib/language/preprocess";
-import type { InputInterpretation, StreamEvent, TargetLanguage, TranslationResult } from "@/lib/types";
+import type { InputInterpretation, QueryTelemetry, StreamEvent, TargetLanguage, TranslationResult } from "@/lib/types";
 
 type FollowUpMessage = { question: string; answer: Partial<TranslationResult> };
 type QueryStatus = "idle" | "enriching" | "local" | "success" | "partial" | "timeout" | "error";
@@ -80,6 +80,7 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
   const [followUp, setFollowUp] = useState("");
   const [messages, setMessages] = useState<FollowUpMessage[]>([]);
   const [remainingUses, setRemainingUses] = useState(guest?.remainingUses);
+  const [measurement, setMeasurement] = useState<(QueryTelemetry & { clientLocalMs?: number; clientTotalMs: number }) | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const activeRequestRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
@@ -110,11 +111,16 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
     setMessages([]);
     setConversationId(undefined);
     let receivedLocalResult = false;
+    let clientLocalMs: number | undefined;
+    const clientStarted = performance.now();
+    const diagnostics = new URLSearchParams(window.location.search).get("diagnostics") === "1";
+    setMeasurement(null);
     try {
-      const response = await fetch("/api/translate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: query, targetLanguage, inputMode }), signal: controller.signal });
+      const response = await fetch("/api/translate", { method: "POST", headers: { "Content-Type": "application/json", ...(diagnostics ? { "x-shiori-diagnostics": "1" } : {}) }, body: JSON.stringify({ input: query, targetLanguage, inputMode }), signal: controller.signal });
       await consumeStream(response, (streamEvent) => {
         if (requestId !== requestIdRef.current) return;
         if (streamEvent.type === "section") {
+          if (clientLocalMs === undefined && ["dictionary", "translation"].includes(streamEvent.data.key) && streamEvent.data.value) clientLocalMs = performance.now() - clientStarted;
           if (streamEvent.data.value !== undefined && streamEvent.data.value !== "") {
             receivedLocalResult = true;
             setQueryStatus("local");
@@ -123,6 +129,7 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
         }
         if (streamEvent.type === "meta") setResult((current) => ({ ...current, detectedLanguage: streamEvent.data.detectedLanguage, targetLanguage: streamEvent.data.targetLanguage as TranslationResult["targetLanguage"] }));
         if (streamEvent.type === "done") {
+          if (diagnostics && streamEvent.data.telemetry) setMeasurement({ ...streamEvent.data.telemetry, clientLocalMs, clientTotalMs: performance.now() - clientStarted });
           setResult(streamEvent.data.result);
           setQueryStatus(streamEvent.data.result.warnings?.length ? "partial" : "success");
           setConversationId(streamEvent.data.conversationId);
@@ -254,6 +261,7 @@ export function TranslatorApp({ hasAccess, allowGuestCodes, guest, initialResult
       </section>
 
       {!hasAccess && <AccessPanel allowGuestCodes={allowGuestCodes} />}
+      {measurement && <details className="query-measurement"><summary>本次查询测量（Owner）</summary><pre data-testid="query-measurement">{JSON.stringify(measurement)}</pre></details>}
 
       {result && (
         <div ref={resultRef} className="result-area">

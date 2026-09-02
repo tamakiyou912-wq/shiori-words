@@ -7,6 +7,7 @@ import { reserveGuestUse, releaseGuestUse } from "@/lib/guest-usage";
 import { publicError } from "@/lib/http";
 import { clientIp, enforceRateLimit } from "@/lib/rate-limit";
 import { getPrincipal } from "@/lib/principal";
+import { getCurrentOwner } from "@/lib/auth";
 import { finalizeWithoutAI, mergeAIResult, prepareQuery } from "@/lib/query/pipeline";
 import { getCachedQuery, isPublicCacheable, queryCacheKey, setCachedQuery } from "@/lib/query/cache";
 import type { QueryTelemetry, StreamEvent, TranslationResult } from "@/lib/types";
@@ -102,6 +103,9 @@ export async function POST(request: Request) {
 
   const principal = await getPrincipal();
   if (!principal) return streamResponse(async (send) => send({ type: "error", message: "请先登录或输入体验码。", code: "UNAUTHORIZED" }));
+  // Explicit owner-only measurement mode. Never expose credentials or bypass quotas.
+  const diagnostics = request.headers.get("x-shiori-diagnostics") === "1" && Boolean(await getCurrentOwner());
+  const exposeTelemetry = diagnostics || process.env.NODE_ENV === "development";
 
   return streamResponse(async (send) => {
     let guestReserved = false;
@@ -153,7 +157,7 @@ export async function POST(request: Request) {
           usage: completion.usage,
         };
         logTelemetry(telemetry);
-        send({ type: "done", data: { result, conversationId: conversation.id, remainingUses, telemetry: process.env.NODE_ENV === "development" ? telemetry : undefined } });
+        send({ type: "done", data: { result, conversationId: conversation.id, remainingUses, telemetry: exposeTelemetry ? telemetry : undefined } });
         return;
       }
 
@@ -180,7 +184,7 @@ export async function POST(request: Request) {
           result = finalizeWithoutAI(result, "当前只显示基础词典结果；配置 AI API 后可获得中文解释、例句和语境。 ");
         } else {
           const cacheKey = queryCacheKey(plan.normalizedInput, plan.targetLanguage, credential.provider, credential.model);
-          const cached = isPublicCacheable(plan.baseResult) ? getCachedQuery(cacheKey) : null;
+          const cached = !diagnostics && isPublicCacheable(plan.baseResult) ? getCachedQuery(cacheKey) : null;
           if (cached) {
             result = {
               ...cached,
@@ -200,6 +204,7 @@ export async function POST(request: Request) {
             const aiStarted = performance.now();
             try {
               stage = "provider";
+              plan.telemetry.aiCalls = 1;
               const completion = await createProvider(credential).complete({
                 input: payload.input,
                 targetLanguage: payload.targetLanguage,
@@ -208,11 +213,11 @@ export async function POST(request: Request) {
                 signal: request.signal,
               });
               plan.telemetry.aiMs = performance.now() - aiStarted;
-              plan.telemetry.aiCalls = 1;
               plan.telemetry.usage = completion.usage;
               result = mergeAIResult(plan.baseResult, completion.result);
               if (isPublicCacheable(result)) setCachedQuery(cacheKey, result);
             } catch (error) {
+              plan.telemetry.aiMs = performance.now() - aiStarted;
               if (guestReserved && principal.kind === "guest") {
                 await releaseGuestUse(principal.guestCodeId).catch(() => undefined);
                 guestReserved = false;
@@ -240,7 +245,7 @@ export async function POST(request: Request) {
       }
       plan.telemetry.totalMs = performance.now() - started;
       logTelemetry(plan.telemetry);
-      send({ type: "done", data: { result, conversationId: conversation?.id ?? conversationId, remainingUses, telemetry: process.env.NODE_ENV === "development" ? plan.telemetry : undefined } });
+      send({ type: "done", data: { result, conversationId: conversation?.id ?? conversationId, remainingUses, telemetry: exposeTelemetry ? plan.telemetry : undefined } });
     } catch (error) {
       console.error("[translate] request failed", { stage, code: diagnosticCode(error) });
       if (guestReserved && principal.kind === "guest") await releaseGuestUse(principal.guestCodeId).catch(() => undefined);
