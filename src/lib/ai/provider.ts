@@ -125,9 +125,9 @@ export function userPrompt(request: AIRequest) {
     return JSON.stringify({
       task: "follow-up",
       question: request.followUp,
-      target,
-      instruction: "Explain briefly in Simplified Chinese; quote examples/revisions in the target language. Answer only what was asked. If already natural, confirm without inventing alternatives. Never coin Japanese words or pass Chinese vocabulary off as Japanese. Preserve the supplied katakana source/modern-English distinction. For direct messages, address the recipient, not 'please tell them'.",
-      output: { translation: "Chinese answer/explanation, with target-language wording when useful; no request envelope" },
+      subject: request.context.dictionary?.surface ?? request.context.sentenceAnalysis?.japanese ?? request.context.primary ?? request.context.translation,
+      instruction: "Explain briefly in Simplified Chinese. A naturalness question refers to the displayed subject IN ITS OWN LANGUAGE, not whether the subject is Chinese. Keep examples/revisions in the subject's language unless asked otherwise. Answer only what was asked. If already natural, confirm without inventing alternatives. Never coin Japanese words or pass Chinese vocabulary off as Japanese. Preserve the supplied katakana distinction. For direct messages, address the recipient.",
+      output: { translation: "Chinese explanation with examples/revisions when useful; no request envelope" },
       context,
     });
   }

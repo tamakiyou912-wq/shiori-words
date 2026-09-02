@@ -105,6 +105,9 @@ describe("bounded adaptive provider policy", () => {
     const request={input:"test",targetLanguage:"ja" as const,context,followUp:"为什么这个表达不自然？"};
     expect(reasoningPolicy(request)).toBe("low");
     expect(reasoningPolicy({...request,followUp:"这样自然吗？"})).toBe("low");
+    const followUpPrompt=JSON.parse(userPrompt({...request,context:{...context,primary:"学校",dictionary:{surface:"学校"}}}));
+    expect(followUpPrompt.subject).toBe("学校");
+    expect(followUpPrompt.target).toBeUndefined();
     expect(reasoningPolicy({...request,followUp:"再给一个例句"})).toBe("disabled");
     expect(reasoningPolicy({input:"長い文。".repeat(70),targetLanguage:"ja"})).toBe("low");
     vi.stubGlobal("fetch",vi.fn(async()=>Response.json({choices:[{message:{content:'{"translation":"説明"}'}}]})));
