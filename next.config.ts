@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite"],
   experimental: {
     serverActions: { bodySizeLimit: "1mb" },
+    // A restored production compiler cache emitted stale global CSS alongside
+    // new components. Recompile build assets; dev and runtime caches stay on.
+    turbopackFileSystemCacheForBuild: false,
   },
   async headers() {
     return [
