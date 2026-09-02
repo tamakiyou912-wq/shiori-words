@@ -6,7 +6,9 @@ export const katakanaKinds = {
 } as const;
 
 const text = (value: unknown) => typeof value === "string" && value.trim() ? value.trim().slice(0, 500) : undefined;
-const expressionKey = (value: string) => value.normalize("NFKC").toLocaleLowerCase("en").replace(/[\p{P}\p{Z}]/gu, "");
+const expressionKey = (value: string) => value.normalize("NFKC").toLocaleLowerCase("en")
+  .replace(/\([^()]*[\p{Script=Han}ぁ-ゖァ-ヶ][^()]*\)/gu, "")
+  .replace(/[\p{P}\p{Z}]/gu, "");
 
 /** Field-level recovery: optional etymology must never invalidate the translation. */
 export function normalizeKatakanaInfo(value: unknown): KatakanaInfo | undefined {

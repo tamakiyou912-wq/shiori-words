@@ -28,6 +28,7 @@ describe("katakana learning presentation", () => {
   it("deduplicates equivalent source and English without losing distinct synonyms", () => {
     const view = katakanaPresentation({katakanaInfo:{sourceExpression:"Internet",naturalEnglish:["internet", "Internet.","the Net"]}});
     expect(view?.naturalEnglish).toEqual(["the Net"]);
+    expect(katakanaPresentation({katakanaInfo:{sourceExpression:"television（缩写）",naturalEnglish:["television","TV"]}})?.naturalEnglish).toEqual(["TV"]);
   });
   it.each([null, false, [], 42, "bad"])("ignores an invalid optional object %j", (value) => {
     expect(normalizeKatakanaInfo(value)).toBeUndefined();
@@ -95,6 +96,8 @@ describe("bounded adaptive provider policy", () => {
   it("requests katakana learning fields even when JMdict prefers kanji",()=>{
     const prompt=JSON.parse(userPrompt({input:"コーヒー",targetLanguage:"auto",seed:{dictionary:{surface:"珈琲",reading:"コーヒー"}}}));
     expect(prompt.output.katakanaInfo).toBeTruthy();
+    expect(prompt.output.katakanaInfo.sourceLanguage).toContain("certain");
+    expect(prompt.output.katakanaInfo.naturalEnglish[0]).toContain("JAPANESE meaning");
     expect(prompt.output.dictionary.chineseMeaning).toContain("required");
   });
 });
