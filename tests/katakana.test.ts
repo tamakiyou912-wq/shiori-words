@@ -48,6 +48,11 @@ describe("katakana learning presentation", () => {
     expect(html.indexOf("mobile battery")).toBeLessThan(html.indexOf("power bank"));
     expect(html.indexOf("power bank")).toBeLessThan(html.indexOf("充电宝"));
   });
+  it("retains a direct katakana spelling when the dictionary uses a kanji variant",()=>{
+    const html=renderToStaticMarkup(createElement(TranslationResultView,{result:{original:"コーヒー",dictionary:{surface:"珈琲",reading:"コーヒー",chineseMeaning:"咖啡"},katakanaInfo:{sourceExpression:"koffie",naturalEnglish:["coffee"]}}}));
+    expect(html).toMatch(/<h1[^>]*>コーヒー<\/h1>/);
+    expect(html).toContain("咖啡");
+  });
   it.each([["学校","title-short"],["こんにちは","title-medium"],["モバイルバッテリー","title-long"],["コミュニケーション","title-long"],["コンピューターサイエンス","title-long"]])("sizes %s with a generic length rule",(word,expected)=>expect(titleLengthClass(word)).toBe(expected));
   it("invalidates the old result cache", () => {
     expect(CACHE_SCHEMA_VERSION).not.toBe("query-v9");
@@ -73,6 +78,11 @@ describe("bounded adaptive provider policy", () => {
     expect(prompt).not.toContain('"romaji":"gakkou"');
     expect(prompt).not.toContain('"recognition"');
     expect(prompt).toContain('"reading":"がっこう"');
+  });
+  it("requests katakana learning fields even when JMdict prefers kanji",()=>{
+    const prompt=JSON.parse(userPrompt({input:"コーヒー",targetLanguage:"auto",seed:{dictionary:{surface:"珈琲",reading:"コーヒー"}}}));
+    expect(prompt.output.katakanaInfo).toBeTruthy();
+    expect(prompt.output.dictionary.chineseMeaning).toContain("required");
   });
 });
 

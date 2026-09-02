@@ -45,6 +45,16 @@ export function applyCuratedEnrichment(result: TranslationResult): TranslationRe
   return {
     ...result,
     katakanaOrigin: result.katakanaOrigin ?? curated.origin,
+    // An editorial note with no source intentionally leaves provenance open.
+    // Do not let an unverified AI etymology silently reintroduce certainty.
+    katakanaInfo: !curated.origin.source ? {
+      ...result.katakanaInfo,
+      kind: "shift",
+      sourceExpression: undefined,
+      sourceLanguage: undefined,
+      naturalEnglish: curated.origin.actualEnglish?.split(/\s*\/\s*/u),
+      usageNote: curated.origin.explanation,
+    } : result.katakanaInfo,
     usageNotes: notes.length ? notes : undefined,
   };
 }

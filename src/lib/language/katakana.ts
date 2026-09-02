@@ -36,7 +36,7 @@ export function katakanaPresentation(result: Partial<TranslationResult>) {
     sourceExpression: legacy.source, naturalEnglish: legacy.actualEnglish,
     usageNote: legacy.explanation, isWaseiEigo: legacy.waseiEigo,
   });
-  if (!info && !isKatakanaWord(result.dictionary?.surface ?? "")) return;
+  if (!info && !isKatakanaWord(result.dictionary?.surface ?? "") && !isKatakanaWord(result.original ?? "")) return;
   const natural = info?.naturalEnglish?.length ? info.naturalEnglish : result.dictionary?.englishMeaning?.split(/\s*[\/;；·]\s*/u) ?? [];
   return {
     ...info,

@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { toRomaji } from "wanakana";
 import { CheckCircle, MagnifyingGlass, SpeakerHigh } from "@phosphor-icons/react";
 import type { SearchSuggestion, TranslationResult } from "@/lib/types";
-import { katakanaPresentation, titleLengthClass } from "@/lib/language/katakana";
+import { isKatakanaWord, katakanaPresentation, titleLengthClass } from "@/lib/language/katakana";
 import { useRomajiPreference } from "./use-romaji-preference";
 
 function alternativeQuery(label: string) {
@@ -48,7 +48,7 @@ export function TranslationResultView({
   const entry = sentence ? undefined : result.dictionary;
   const [showRomaji, toggleRomaji] = useRomajiPreference();
   const romajiId = useId();
-  const surface = entry?.surface || result.translation || "…";
+  const surface = entry && isKatakanaWord(result.original ?? "") ? result.original! : entry?.surface || result.translation || "…";
   const reading = entry?.reading || sentence?.reading || (/^[ぁ-ゖァ-ヶー\s]+$/u.test(surface) ? surface : undefined);
   const romaji = entry?.romaji || sentence?.romaji || (reading ? toRomaji(reading) : undefined);
   const katakana = !sentence ? katakanaPresentation(result) : undefined;
@@ -102,7 +102,7 @@ export function TranslationResultView({
         {katakana ? <>
           {katakana.sourceExpression && <p className="entry-source" aria-label="来源或构成表达">{katakana.sourceExpression}</p>}
           {katakana.naturalEnglish.length > 0 && <div className="entry-definition"><span>自然英语</span><p lang="en">{katakana.naturalEnglish.join(" · ")}</p></div>}
-          {entry?.chineseMeaning && <div className="entry-definition"><span>中文</span><p lang="zh-Hans">{entry.chineseMeaning}</p></div>}
+          <div className="entry-definition"><span>中文</span><p lang="zh-Hans">{entry?.chineseMeaning || (streaming ? "正在补充…" : "中文释义未完整返回，可继续追问。")}</p></div>
           {(katakana.label || katakana.sourceLanguage || katakana.formationNote || katakana.usageNote) && <div className="entry-origin-note">
             {(katakana.label || katakana.sourceLanguage) && <small>{[katakana.label, katakana.sourceLanguage].filter(Boolean).join(" · ")}</small>}
             {[...new Set([katakana.formationNote, katakana.usageNote].filter(Boolean))].map((note) => <p key={note}>{note}</p>)}

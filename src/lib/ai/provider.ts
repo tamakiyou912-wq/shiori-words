@@ -71,7 +71,7 @@ function providerUrl(baseUrl: string, path: string) {
 
 /** Stable prefix: keep dynamic data out so provider prompt caching can match it. */
 export function systemPrompt() {
-  return `SHIORI: Japanese/Chinese/English learning. Return JSON only. Preserve known dictionary facts; omit repeated facts and redundant translations. Translate naturally, not phonetically. Notes in Simplified Chinese. Include 1-2 short examples; 2-3 meanings only when genuinely ambiguous. Never invent origins: omit uncertain provenance. Source/word construction is NOT necessarily natural English. All fields optional; keep useful partial results.`;
+  return `SHIORI: Japanese/Chinese/English learning. Return JSON only using the output structure. Preserve known dictionary facts. Every word needs dictionary.chineseMeaning and 1-2 short examples. Translate naturally, not phonetically. All notes in Simplified Chinese. Add 2-3 meanings only if genuinely ambiguous. Never invent origins; omit uncertain provenance. Source/construction is NOT necessarily natural English. No redundant literal translations.`;
 }
 
 /** Local decision only: routine lookups never spend tokens on reasoning. */
@@ -131,7 +131,7 @@ export function userPrompt(request: AIRequest) {
   }
   const sentence = isLikelySentence(request.input);
   const composed = request.seed?.dictionary?.partOfSpeech === "组合表达";
-  const katakana = isKatakanaWord(request.seed?.dictionary?.surface ?? request.input)
+  const katakana = isKatakanaWord(request.input) || isKatakanaWord(request.seed?.dictionary?.surface ?? "")
     || (detected === "romaji" && (!request.seed?.dictionary || composed));
   const known = compactSeed(request.seed);
   return JSON.stringify({
@@ -142,10 +142,10 @@ export function userPrompt(request: AIRequest) {
     interpretation: request.inputMode !== "auto" ? request.inputMode : undefined,
     known,
     segmentation: composed ? "Tentative segmentation, not a dictionary headword. Fix unnatural orthography while preserving the known pronunciation." : undefined,
-    fields: sentence
-      ? "translation;sentenceAnalysis{japanese,reading,romaji,chinese,english,tokens:[{surface,reading,romaji,meaning}],variants:[{label,japanese,reading,chinese,english}](2 registers)}"
-      : "dictionary{surface,reading,chineseMeaning,englishMeaning};examples:[{japanese,chinese}](1-2);usageNotes:[short context if useful]",
-    katakana: katakana ? "For a katakana answer include katakanaInfo{sourceExpression:foreign expansion/construction NOT romaji,naturalEnglish:[1-2 equivalents],kind:loan|abbreviation|wasei|shift|nonEnglish,sourceLanguage?:only certain,usageNote?:one short sentence}. loan=unchanged borrowing; abbreviation=Japanese shortening; wasei=Japanese-coined English combination; shift=changed meaning. If construction differs from natural English, explicitly warn against using the literal form in English. Do not invent historical etymology. Omit repeated dictionary.englishMeaning." : undefined,
+    output: sentence
+      ? { translation: "target language", sentenceAnalysis: { japanese: "", reading: "", romaji: "", chinese: "", english: "", tokens: [{surface:"",reading:"",romaji:"",meaning:""}], variants: [{label:"",japanese:"",reading:"",chinese:"",english:""}] } }
+      : { dictionary: {surface:"Japanese headword",reading:"kana",chineseMeaning:"Chinese meaning (required)",englishMeaning:katakana ? undefined : "natural English"}, examples:[{japanese:"Japanese sentence",reading:"kana",chinese:"natural Chinese translation"}], ...(katakana ? {katakanaInfo:{sourceExpression:"foreign construction, not romaji",naturalEnglish:["modern English"],kind:"loan|abbreviation|wasei|shift|nonEnglish",usageNote:"short Chinese note if needed"}} : {}) },
+    katakana: katakana ? "loan=unchanged borrowing; abbreviation=Japanese shortening; wasei=Japanese-coined English combination; shift=changed meaning. Expand abbreviations. If construction differs from natural English, warn in Chinese against using the literal form in English. sourceLanguage optional, only if certain." : undefined,
   });
 }
 
